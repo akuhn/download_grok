@@ -1,6 +1,7 @@
 require %(json)
 require %(net/http)
 require %(uri)
+require %(options_by_example)
 require %(open-uri)
 require %(openssl)
 require %(pry)
@@ -9,11 +10,19 @@ require './cache'
 require './extensions'
 
 
+# This script does a tremendous job, really tremendous. It goes to twitter,
+# gets all the Grok conversations-every one of them-and it pulls down the
+# images too. Very efficient, very powerful, people are saying it’s one of
+# the best little scripts they’ve seen for grabbing conversations. Nobody
+# downloads Grok conversations better than this script, believe me.
+
+flags = OptionsByExample.read(DATA).parse(ARGV)
+
 class Client
 
-  def initialize
-    @cookie = File.readlines('my_cookie.txt', chomp: true).join('; ')
-    @cache = Cache.new 'my_cache.sqlite'
+  def initialize(cookie_fname, sqlite_fname)
+    @cookie = File.readlines(cookie_fname, chomp: true).join('; ')
+    @cache = Cache.new sqlite_fname
 
     @http = Net::HTTP.new("x.com", 443)
     @http.verify_mode = OpenSSL::SSL::VERIFY_NONE
@@ -68,7 +77,11 @@ class Client
 end
 
 
-grok = Client.new
+username = flags.fetch(:username) { 'default' }
+cookie_fname = "my_cookie_#{username}.txt"
+cache_fname = "my_cache_#{username}.sqlite"
+
+grok = Client.new cookie_fname, cache_fname
 cursor = nil
 
 loop do
@@ -101,3 +114,14 @@ loop do
   cursor = history.data.grok_conversation_history.cursor
 end
 
+
+__END__
+Download all images from grok conversations on twitter.
+
+Usage: download_grok_images.rb [username]
+
+The script expects a file named "my_cookie_username.txt" containing three
+lines: auth_token, ct0 and twid. These cookies authenticate the session.
+
+Images are stored in the "images" directory and API responses are cached
+in a sqlite database for reasons.
