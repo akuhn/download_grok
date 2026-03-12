@@ -25,7 +25,6 @@ class Client
     @cache = Cache.new sqlite_fname
 
     @http = Net::HTTP.new("x.com", 443)
-    @http.verify_mode = OpenSSL::SSL::VERIFY_NONE
     @http.use_ssl = true
   end
 
@@ -121,7 +120,7 @@ Download all images from grok conversations on twitter.
 Usage: download_grok_images.rb [username]
 
 The script expects a file named "my_cookie_username.txt" containing three
-lines: auth_token, ct0 and twid. These cookies authenticate the session.
+lines: auth_token, ct0 and twid. These values authenticate the session.
 
 Images are stored in the "images" directory and API responses are cached
 in a sqlite database for reasons.
