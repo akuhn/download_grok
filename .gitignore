@@ -1,3 +1,4 @@
-my_cache.sqlite
-my_cookie.txt
+my_cache*
+my_cookie*
 images/
+.DS_Store

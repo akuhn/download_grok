@@ -32,4 +32,9 @@ class Cache
 
     content
   end
+
+  def delete(key)
+    @db.execute("DELETE FROM cache WHERE key = ?", key)
+  end
 end
+

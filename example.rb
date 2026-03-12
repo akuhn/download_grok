@@ -20,29 +20,39 @@ class Client
     @http.use_ssl = true
   end
 
-  def download_history()
-    vars = URI.encode_www_form_component("{}")
-    self.download "https://x.com/i/api/graphql/9Hyh5D4-WXLnExZkONSkZg/GrokHistory?variables=#{vars}"
+  def download_history(cursor = nil)
+    self.download_graphql(
+      "9Hyh5D4-WXLnExZkONSkZg/GrokHistory",
+      { cursor: cursor }.compact,
+    )
   end
 
   def download_conversation(rest_id)
-    vars = URI.encode_www_form_component({restId: rest_id}.to_json)
-    self.download "https://x.com/i/api/graphql/pqR3-SwIRnMCt8pgdbPM8w/GrokConversationItemsByRestId?variables=#{vars}"
+    self.download_graphql(
+      "pqR3-SwIRnMCt8pgdbPM8w/GrokConversationItemsByRestId",
+      { restId: rest_id },
+    )
+  end
+
+  def download_graphql(path, vars)
+    encoded = URI.encode_www_form_component(vars.to_json)
+    self.download "https://x.com/i/api/graphql/#{path}?variables=#{encoded}"
   end
 
   def download(url)
+    $most_recently_used_url = url
     data = @cache.fetch(url) {
       req = Net::HTTP::Get.new(URI(url))
 
       req["authorization"] = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
       req["content-type"] = "application/json"
-      req["x-csrf-token"] = "418a47d5990039adec6b5944c1011c287f0de9540780e7071a2b4d8d0caf8d1c1ea43a1723d1d448d7087287657ab6660ad65f104321d419e5f50dfd10964643e41d22c2fef2a8874dcd65671e40f2f9"
       req["user-agent"] = "Mozilla/5.0"
       req["x-twitter-active-user"] = "yes"
       req["x-twitter-auth-type"] = "OAuth2Session"
       req["x-twitter-client-language"] = "en-US"
 
       req["cookie"] = @cookie
+      req["x-csrf-token"] = @cookie[/ct0=([^;]+)/, 1]
 
       res = @http.request(req)
       binding.pry unless res.code == "200"
@@ -59,32 +69,35 @@ end
 
 
 grok = Client.new
+cursor = nil
 
-history = grok.download_history
-conversations = history.data.grok_conversation_history.items
+loop do
 
-conversations.each do |each|
-  title = each.title
-  conversation_id = each.grokConversation.rest_id
+  history = grok.download_history(cursor)
+  conversations = history.data.grok_conversation_history.items
 
-  puts title
+  conversations.each do |each|
+    title = each.title
+    conversation_id = each.grokConversation.rest_id
 
-  conversation = grok.download_conversation(conversation_id)
-  messages = conversation.data.grok_conversation_items_by_rest_id.items
+    puts title
+    puts "  #{conversation_id}"
 
-  puts "  #{conversation_id} (#{messages.length} messages)"
+    conversation = grok.download_conversation(conversation_id)
+    messages = conversation.data.grok_conversation_items_by_rest_id.items rescue binding.pry
 
-  messages.flat_map(&'file_attachments').compact.map(&'url').each do |url|
+    puts "  #{messages.length} messages found"
 
-    old_fname = "images/img_#{url[/\d+$/]}.jpg"
-    new_fname = "images/#{conversation_id}_#{url[/\d+$/]}.jpg"
-    File.rename(old_fname, new_fname) if File.exist? old_fname
-    fname = new_fname
+    messages.flat_map(&'file_attachments').compact.map(&'url').each do |url|
+      fname = "images/#{conversation_id}_#{url[/\d+$/]}.jpg"
+      next if File.exist? fname
 
-    next if File.exist? fname
-
-    puts "    Downloading #{fname}..."
-    IO.copy_stream(URI.open(url, grok.cookie), fname)
+      puts "  downloading #{fname}..."
+      IO.copy_stream(URI.open(url, grok.cookie), fname)
+    end
   end
+
+  break unless history.data.grok_conversation_history.include? 'cursor'
+  cursor = history.data.grok_conversation_history.cursor
 end
 
