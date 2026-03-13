@@ -11,9 +11,11 @@ Run it like this:
 ```
 bundle install
 mkdir -p images
-bundle exec ruby download_grok_images.rb [username]
+bundle exec ruby download_grok_images.rb -u username
 ```
 
-If you omit `[username]`, it uses `default` and looks for `my_cookie_default.txt`. Responses are cached in `my_cache_<username>.sqlite`, delete rows from that cache if you want to force a refetch for a specific url, or delete the file if you want a full clean run.
+If you omit `-u/--user`, it uses `default` and looks for `my_cookie_default.txt`. By default the cache partition is the current local date in `YYYY-MM-DD` format, which means cached API responses are reused only within that day. If you want a longer-lived cache while iterating, pass a named partition (for example `--partition dev`).
+
+Responses are still stored in `my_cache_<username>.sqlite`, but they are now partitioned inside that database. Delete rows from that cache if you want to force a refetch for a specific url, delete the file if you want a full clean run, or switch partitions if you want an isolated cache namespace.
 
 A few practical notes: this depends on private internals, so expect breakage when they move things around. Keep cookie files local, never commit them and treat this as a practical personal utility, not by-the-book but it works.

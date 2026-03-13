@@ -1,6 +1,7 @@
 require %(json)
 require %(net/http)
 require %(uri)
+require %(date)
 require %(options_by_example)
 require %(open-uri)
 require %(openssl)
@@ -20,9 +21,9 @@ flags = OptionsByExample.read(DATA).parse(ARGV)
 
 class Client
 
-  def initialize(cookie_fname, sqlite_fname)
+  def initialize(cookie_fname, sqlite_fname, partition)
     @cookie = File.readlines(cookie_fname, chomp: true).join('; ')
-    @cache = Cache.new sqlite_fname
+    @cache = Cache.new sqlite_fname, partition
 
     @http = Net::HTTP.new("x.com", 443)
     @http.use_ssl = true
@@ -50,6 +51,7 @@ class Client
   def download(url)
     $most_recently_used_url = url
     data = @cache.fetch(url) {
+
       req = Net::HTTP::Get.new(URI(url))
 
       req["authorization"] = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
@@ -76,11 +78,12 @@ class Client
 end
 
 
-username = flags.fetch(:username) { 'default' }
+username = flags.fetch(:user) { 'default' }
+partition = flags.fetch(:partition) { Date.today.iso8601 }
 cookie_fname = "my_cookie_#{username}.txt"
 cache_fname = "my_cache_#{username}.sqlite"
 
-grok = Client.new cookie_fname, cache_fname
+grok = Client.new cookie_fname, cache_fname, partition
 cursor = nil
 
 loop do
@@ -104,7 +107,7 @@ loop do
       fname = "images/#{conversation_id}_#{url[/\d+$/]}.jpg"
       next if File.exist? fname
 
-      puts "  downloading #{fname}..."
+      puts "  downloading #{fname} ..."
       IO.copy_stream(URI.open(url, grok.cookie), fname)
     end
   end
@@ -117,10 +120,15 @@ end
 __END__
 Download all images from grok conversations on twitter.
 
-Usage: download_grok_images.rb [username]
+Usage: download_grok_images.rb [options]
+
+Options:
+  -p, --partition NAME   Cache partition to use, defaults to today's date
+  -u, --user NAME        Use specific cookie and cache files
 
 The script expects a file named "my_cookie_username.txt" containing three
 lines: auth_token, ct0 and twid. These values authenticate the session.
 
 Images are stored in the "images" directory and API responses are cached
-in a sqlite database for reasons.
+in a sqlite database for reasons. Cache entries are scoped to the selected
+partition, so the default cache only lasts for one day.
