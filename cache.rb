@@ -23,15 +23,16 @@ class Cache
   end
 
   def fetch(key)
+    raise unless block_given?
+
     row = @db.get_first_row(
       "SELECT content FROM cache WHERE partition = ? AND key = ? ORDER BY timestamp DESC LIMIT 1",
       [@partition, key]
     )
 
-    return row[0] if row
-
-    raise "no block given" unless block_given?
-
+    content = row && row.first
+    content = nil if content == %(__marked_as_stale_cache_entry__)
+    return content if content
     content = yield
 
     @db.execute(
@@ -40,6 +41,13 @@ class Cache
     )
 
     content
+  end
+
+  def mark_as_stale(key)
+    @db.execute(
+      "INSERT INTO cache (partition, key, content) VALUES (?, ?, ?)",
+      [@partition, key, %(__marked_as_stale_cache_entry__)]
+    )
   end
 
   def delete(key)
