@@ -23,9 +23,10 @@ class Client
 
   attr_reader :cache
 
-  def initialize(cookie_fname, sqlite_fname, partition)
+  def initialize(cookie_fname, sqlite_fname, partition, flags)
     @cookie = File.readlines(cookie_fname, chomp: true).join('; ')
     @cache = Cache.new sqlite_fname, partition
+    @flags = flags
 
     @http = Net::HTTP.new("x.com", 443)
     @http.use_ssl = true
@@ -53,6 +54,7 @@ class Client
   def download(url)
     $most_recently_used_url = url
     data = @cache.fetch(url) {
+      puts "  fetching #{url}" if @flags.include_verbose?
 
       req = Net::HTTP::Get.new(URI(url))
 
@@ -85,12 +87,12 @@ partition = flags.fetch(:partition) { Date.today.iso8601 }
 cookie_fname = "my_cookie_#{username}.txt"
 cache_fname = "my_cache_#{username}.sqlite"
 
-grok = Client.new cookie_fname, cache_fname, partition
+grok = Client.new cookie_fname, cache_fname, partition, flags
 cursor = nil
 
-flags.include?(:stale) do
-  grok.cache.mark_as_stale flags.get(:stale)
-  puts "Marked the url as stale"
+if flags.include_mark?
+  grok.cache.mark_as_stale flags.get(:mark)
+  puts "Marked the url as stale, expect it to reload this time"
 end
 
 loop do
@@ -131,8 +133,9 @@ Usage: download_grok_images.rb [options]
 
 Options:
   -p, --partition NAME   Cache partition to use, defaults to today's date
-  -s, --stale URL        Mark a cached response as stale and refetch next time
   -u, --user NAME        Use specific cookie and cache files
+  -m, --mark URL         Mark a cached response as stale and refetch this time
+  -v, --verbose          Print each URL when it is fetched from the network
 
 The script expects a file named "my_cookie_username.txt" containing three
 lines: auth_token, ct0 and twid. These values authenticate the session.
