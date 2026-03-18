@@ -6,6 +6,7 @@ require %(options_by_example)
 require %(open-uri)
 require %(openssl)
 require %(pry)
+require %(digest)
 
 require './cache'
 require './extensions'
@@ -22,6 +23,7 @@ flags = OptionsByExample.read(DATA).parse(ARGV)
 class Client
 
   attr_reader :cache
+  attr_reader :hashed_user_id
 
   def initialize(cookie_fname, sqlite_fname, partition, flags)
     @cookie = File.readlines(cookie_fname, chomp: true).join('; ')
@@ -30,6 +32,9 @@ class Client
 
     @http = Net::HTTP.new("x.com", 443)
     @http.use_ssl = true
+
+    digest = Digest::SHA256.hexdigest(@cookie[/twid=u%3D(\d+)/])
+    @hashed_user_id = (digest.to_i(16) % 100000000).to_s.rjust(8, '0')
   end
 
   def download_history(cursor = nil)
@@ -113,9 +118,11 @@ loop do
     puts "  #{messages.length} messages found"
 
     messages.flat_map(&'file_attachments').compact.map(&'url').each do |url|
-      fname = "images/#{conversation_id}_#{url[/\d+$/]}.jpg"
-      next if File.exist? fname
+      old_fname = "images/#{conversation_id}_#{url[/\d+$/]}.jpg"
+      fname = "images/#{conversation_id}_#{url[/\d+$/]}_#{grok.hashed_user_id}.jpg"
+      File.rename(old_fname, fname) if File.exist?(old_fname)
 
+      next if File.exist? fname
       puts "  downloading #{fname} ..."
       IO.copy_stream(URI.open(url, grok.cookie), fname)
     end
