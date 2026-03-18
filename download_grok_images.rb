@@ -86,9 +86,9 @@ class Client
   end
 end
 
-
 username = flags.fetch(:user) { 'default' }
 partition = flags.fetch(:partition) { Date.today.iso8601 }
+
 cookie_fname = "my_cookie_#{username}.txt"
 cache_fname = "my_cache_#{username}.sqlite"
 
@@ -106,12 +106,14 @@ if flags.include_list_partitions?
 end
 
 grok = Client.new cookie_fname, cache_fname, partition, flags
-cursor = nil
 
 if flags.include_mark?
   grok.cache.mark_as_stale flags.get(:mark)
   puts "Marked the url as stale, expect it to reload this time"
 end
+
+project_map = JSON.parse((File.read('project_map.json') rescue "{}"))
+cursor = nil
 
 loop do
 
@@ -121,6 +123,7 @@ loop do
   conversations.each do |each|
     title = each.title
     conversation_id = each.grokConversation.rest_id
+    project_folder = project_map.fetch(conversation_id.to_s, 'images')
 
     puts title
     puts "  #{conversation_id}"
@@ -129,13 +132,23 @@ loop do
     messages = conversation.data.grok_conversation_items_by_rest_id.items rescue binding.pry
 
     puts "  #{messages.length} messages found"
+    if project_folder.nil?
+      puts "  Skipping downloads for this conversation"
+      next
+    elsif project_folder != 'images'
+      puts "  Using folder #{project_folder} ..."
+    end
 
     messages.flat_map(&'file_attachments').compact.map(&'url').each do |url|
-      old_fname = "images/#{conversation_id}_#{url[/\d+$/]}.jpg"
-      fname = "images/#{conversation_id}_#{url[/\d+$/]}_#{grok.hashed_user_id}.jpg"
-      File.rename(old_fname, fname) if File.exist?(old_fname)
 
-      next if File.exist? fname
+      filename = "#{conversation_id}_#{url[/\d+$/]}_#{grok.hashed_user_id}.jpg"
+      old_fname = "images/#{filename}"
+      fname = "#{project_folder}/#{filename}"
+
+      FileUtils.mkdir_p(project_folder)
+      File.rename(old_fname, fname) if File.exist?(old_fname) && !File.exist?(fname)
+
+      next if File.exist?(fname)
       puts "  downloading #{fname} ..."
       IO.copy_stream(URI.open(url, grok.cookie), fname)
     end
@@ -164,3 +177,6 @@ lines: auth_token, ct0 and twid. These values authenticate the session.
 Images are stored in the "images" directory and API responses are cached
 in a sqlite database for reasons. Cache entries are scoped to the selected
 partition, so the default cache only lasts for one day.
+
+The mapping file is a plain hash from conversation id to folder.
+Use null to skip downloads for a conversation.
