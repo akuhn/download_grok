@@ -92,6 +92,19 @@ partition = flags.fetch(:partition) { Date.today.iso8601 }
 cookie_fname = "my_cookie_#{username}.txt"
 cache_fname = "my_cache_#{username}.sqlite"
 
+if flags.include_list_partitions?
+  cache = Cache.new cache_fname, partition
+  partitions = cache.list_partitions
+
+  if partitions.empty?
+    puts "No partitions found in #{cache_fname}"
+  else
+    partitions.each { |each| puts each }
+  end
+
+  exit
+end
+
 grok = Client.new cookie_fname, cache_fname, partition, flags
 cursor = nil
 
@@ -142,6 +155,7 @@ Options:
   -p, --partition NAME   Cache partition to use, defaults to today's date
   -u, --user NAME        Use specific cookie and cache files
   -m, --mark URL         Mark a cached response as stale and refetch this time
+  -l, --list-partitions  List all partitions available in this user's cache and exit
   -v, --verbose          Print each URL when it is fetched from the network
 
 The script expects a file named "my_cookie_username.txt" containing three

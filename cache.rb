@@ -57,6 +57,17 @@ class Cache
     )
   end
 
+  def list_partitions
+    rows = @db.execute %{
+      SELECT DISTINCT partition
+      FROM cache
+      WHERE partition IS NOT NULL
+      ORDER BY partition
+    }
+
+    rows.flatten
+  end
+
   private
 
   def migrate_partition_schema!
