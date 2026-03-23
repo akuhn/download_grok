@@ -105,6 +105,14 @@ if flags.include_list_partitions?
   exit
 end
 
+if flags.include_drop_partition?
+  cache = Cache.new cache_fname, partition
+  target = flags.get(:drop_partition)
+  removed = cache.drop_partition! target
+  puts "Dropped partition #{target} from #{cache_fname} (#{removed} rows deleted)"
+  exit
+end
+
 grok = Client.new cookie_fname, cache_fname, partition, flags
 
 if flags.include_mark?
@@ -165,11 +173,12 @@ Download all images from grok conversations on twitter.
 Usage: download_grok_images.rb [options]
 
 Options:
-  -p, --partition NAME   Cache partition to use, defaults to today's date
-  -u, --user NAME        Use specific cookie and cache files
-  -m, --mark URL         Mark a cached response as stale and refetch this time
-  -l, --list-partitions  List all partitions available in this user's cache and exit
-  -v, --verbose          Print each URL when it is fetched from the network
+  -p, --partition NAME      Cache partition to use, defaults to today's date
+  --drop-partition NAME     Delete all cache rows in NAME and exit
+  -u, --user NAME           Use specific cookie and cache files
+  -m, --mark URL            Mark a cached response as stale and refetch this time
+  -l, --list-partitions     List all partitions current user and exit
+  -v, --verbose             Print each URL when it is fetched from the network
 
 The script expects a file named "my_cookie_username.txt" containing three
 lines: auth_token, ct0 and twid. These values authenticate the session.

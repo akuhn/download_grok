@@ -68,6 +68,14 @@ class Cache
     rows.flatten
   end
 
+  def drop_partition!(partition)
+    @db.execute(
+      "DELETE FROM cache WHERE partition = ?",
+      [partition]
+    )
+    @db.changes
+  end
+
   private
 
   def migrate_partition_schema!
