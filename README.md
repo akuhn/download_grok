@@ -20,6 +20,8 @@ Responses are still stored in `my_cache_<username>.sqlite`, but they are now par
 
 To remove one partition without touching others, run `bundle exec ruby download_grok_images.rb -u username --drop-partition dev`. You can inspect available names with `--list-partitions`.
 
+To quickly browse what you already downloaded, run `bundle exec ruby download_grok_images.rb --random` and it opens 25 random files from `images/`.
+
 If you want to use multiple image folders, create `project_map.json` as a plain hash mapping conversation id to folders, or to `null` to skip downloads for that conversations.
 
 A few practical notes: this depends on private internals, so expect breakage when they move things around. Keep cookie files local, never commit them and treat this as a practical personal utility, not by-the-book but it works.

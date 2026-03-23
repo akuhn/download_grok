@@ -113,6 +113,13 @@ if flags.include_drop_partition?
   exit
 end
 
+if flags.include_random?
+  files = Dir.glob('images/*').select { it =~ /(jpg|png)$/ }
+  selection = files.sample(25) # choose a uniform sample of n=25
+  puts selection.each { |fname| system('open', fname) }
+  exit
+end
+
 grok = Client.new cookie_fname, cache_fname, partition, flags
 
 if flags.include_mark?
@@ -173,11 +180,12 @@ Download all images from grok conversations on twitter.
 Usage: download_grok_images.rb [options]
 
 Options:
-  -p, --partition NAME      Cache partition to use, defaults to today's date
-  --drop-partition NAME     Delete all cache rows in NAME and exit
   -u, --user NAME           Use specific cookie and cache files
+  -p, --partition NAME      Cache partition to use, defaults to today's date
   -m, --mark URL            Mark a cached response as stale and refetch this time
-  -l, --list-partitions     List all partitions current user and exit
+  --list-partitions         List all partitions current user and exit
+  --drop-partition NAME     Delete all cache rows in NAME and exit
+  --random                  Open 25 random files from the images folder and exit
   -v, --verbose             Print each URL when it is fetched from the network
 
 The script expects a file named "my_cookie_username.txt" containing three
