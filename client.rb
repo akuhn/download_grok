@@ -32,15 +32,23 @@ class Client
   end
 
   def download_conversation(rest_id)
-    self.download_graphql(
+    self.download self.build_conversation_url(rest_id)
+  end
+
+  def build_conversation_url(rest_id)
+    self.build_graphql_url(
       "pqR3-SwIRnMCt8pgdbPM8w/GrokConversationItemsByRestId",
       { restId: rest_id },
     )
   end
 
   def download_graphql(path, vars)
+    self.download self.build_graphql_url(path, vars)
+  end
+
+  def build_graphql_url(path, vars)
     encoded = URI.encode_www_form_component(vars.to_json)
-    self.download "https://x.com/i/api/graphql/#{path}?variables=#{encoded}"
+    "https://x.com/i/api/graphql/#{path}?variables=#{encoded}"
   end
 
   def download(url)

@@ -60,6 +60,9 @@ end
 project_map = JSON.parse((File.read('project_map.json') rescue "{}"))
 cursor = nil
 
+incremental = flags.include_incremental?
+should_stop_because_incremental = false
+
 loop do
 
   history = grok.download_history(cursor)
@@ -73,7 +76,22 @@ loop do
     puts title
     puts "  #{conversation_id}"
 
+    if incremental
+      conversation_url = grok.build_conversation_url(conversation_id)
+      previous_content = grok.cache.most_recent_content(conversation_url)
+    end
+
     conversation = grok.download_conversation(conversation_id)
+
+    if incremental
+      current_content = grok.cache.most_recent_content(conversation_url)
+      if previous_content && previous_content == current_content
+        puts "  unchanged since previous run, stopping incremental download"
+        should_stop_because_incremental = true
+        break
+      end
+    end
+
     messages = conversation.data.grok_conversation_items_by_rest_id.items rescue binding.pry
 
     puts "  #{messages.length} messages found"
@@ -99,6 +117,7 @@ loop do
     end
   end
 
+  break if should_stop_because_incremental
   break unless history.data.grok_conversation_history.include? 'cursor'
   cursor = history.data.grok_conversation_history.cursor
 end
@@ -116,6 +135,7 @@ Options:
   --list-partitions         List all partitions current user and exit
   --drop-partition NAME     Delete all cache rows in NAME and exit
   --random                  Open 25 random files from the images folder and exit
+  --incremental             Stop once a conversation response is unchanged
   -v, --verbose             Print each URL when it is fetched from the network
 
 The script expects a file named "my_cookie_username.txt" containing three

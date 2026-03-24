@@ -43,6 +43,15 @@ class Cache
     content
   end
 
+  def most_recent_content(key)
+    row = @db.get_first_row(
+      "SELECT content FROM cache WHERE key = ? AND content != ? ORDER BY timestamp DESC LIMIT 1",
+      [key, %(__marked_as_stale_cache_entry__)]
+    )
+
+    row && row.first
+  end
+
   def mark_as_stale(key)
     @db.execute(
       "INSERT INTO cache (partition, key, content) VALUES (?, ?, ?)",
