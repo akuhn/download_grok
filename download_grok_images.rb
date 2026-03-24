@@ -102,7 +102,19 @@ loop do
       puts "  Using folder #{project_folder} ..."
     end
 
-    messages.flat_map(&'file_attachments').compact.map(&'url').each do |url|
+    image_urls = (
+      messages.flat_map(&'file_attachments').compact.map(&'url') +
+      messages.flat_map(&'card_attachments').compact
+        .map { JSON.parse it }
+        .map(&'imageAttachment.imageUrl').compact
+        .reject { it.end_with? "/50" }
+        .map { |image_url|
+          raise unless image_url =~ /api.*grok.attachment.json\?mediaId=(\d+$)/
+          "https://ton.x.com/i/ton/data/grok-attachment/#{$1}"
+        }
+    )
+
+    image_urls.each do |url|
 
       filename = "#{conversation_id}_#{url[/\d+$/]}_#{grok.hashed_user_id}.jpg"
       old_fname = "images/#{filename}"
