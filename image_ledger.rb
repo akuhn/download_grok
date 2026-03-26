@@ -39,7 +39,6 @@ class ImageLedger
       result = @ledger.record_file_download(
         username: @username,
         conversation_id: @conversation_id,
-        source_url: @source_url,
         media_id: @media_id,
         source_path: @fname,
         path: @fname,
@@ -66,7 +65,6 @@ class ImageLedger
         result = @ledger.record_file_download(
           username: @username,
           conversation_id: @conversation_id,
-          source_url: @source_url,
           media_id: @media_id,
           source_path: tmp.path,
           path: @fname,
@@ -102,97 +100,83 @@ class ImageLedger
     )
   end
 
-  def record_download(username:, conversation_id:, source_url:, media_id:, path:, size_bytes:, md5:)
+  def record_file_download(username:, conversation_id:, media_id:, source_path:, path:)
+    size_bytes = File.size(source_path)
+    md5 = Digest::MD5.file(source_path).hexdigest
+
     @db.transaction do
-      existing = get_image(media_id)
+      existing = @db.get_first_row("SELECT * FROM images WHERE media_id = ?", [media_id])
       if existing
-        refresh_row(
-          media_id: media_id,
-          username: username,
-          conversation_id: conversation_id,
-          path: path,
-          size_bytes: size_bytes,
-          md5: md5,
+        @db.execute(
+          %{
+            UPDATE images
+            SET username = ?, conversation_id = ?, path = ?, size_bytes = ?, md5 = ?
+            WHERE media_id = ?
+          },
+          [username.to_s, conversation_id.to_s, path, size_bytes, md5, media_id]
         )
-        return {
+        {
           media_id: media_id,
           status: existing["status"],
           canonical_media_id: existing["canonical_media_id"],
         }
-      end
-
-      canonical = find_canonical(md5, size_bytes)
-      if canonical
-        mark_as_duplicate_keep(canonical["media_id"]) unless canonical["status"] == "duplicate_keep"
-        insert_row(
-          username: username,
-          conversation_id: conversation_id,
-          media_id: media_id,
-          path: path,
-          size_bytes: size_bytes,
-          md5: md5,
-          status: "duplicate_delete",
-          canonical_media_id: canonical["media_id"],
-        )
-        {
-          media_id: media_id,
-          status: "duplicate_delete",
-          canonical_media_id: canonical["media_id"],
-        }
       else
-        insert_row(
-          username: username,
-          conversation_id: conversation_id,
-          media_id: media_id,
-          path: path,
-          size_bytes: size_bytes,
-          md5: md5,
-          status: "unique",
-          canonical_media_id: nil,
+        canonical = @db.get_first_row(
+          %{
+            SELECT media_id, status
+            FROM images
+            WHERE md5 = ? AND size_bytes = ?
+              AND status IN ('unique', 'duplicate_keep')
+            ORDER BY media_id
+            LIMIT 1
+          },
+          [md5, size_bytes]
         )
-        { media_id: media_id, status: "unique", canonical_media_id: nil }
+
+        if canonical
+          @db.execute(
+            "UPDATE images SET status = ? WHERE media_id = ?",
+            ["duplicate_keep", canonical["media_id"]]
+          ) unless canonical["status"] == "duplicate_keep"
+
+          insert_row(
+            username: username,
+            conversation_id: conversation_id,
+            media_id: media_id,
+            path: path,
+            size_bytes: size_bytes,
+            md5: md5,
+            status: "duplicate_delete",
+            canonical_media_id: canonical["media_id"],
+          )
+          {
+            media_id: media_id,
+            status: "duplicate_delete",
+            canonical_media_id: canonical["media_id"],
+          }
+        else
+          insert_row(
+            username: username,
+            conversation_id: conversation_id,
+            media_id: media_id,
+            path: path,
+            size_bytes: size_bytes,
+            md5: md5,
+            status: "unique",
+            canonical_media_id: nil,
+          )
+          { media_id: media_id, status: "unique", canonical_media_id: nil }
+        end
       end
     end
   end
 
-  def record_file_download(username:, conversation_id:, source_url:, media_id:, source_path:, path:)
-    record_download(
-      username: username,
-      conversation_id: conversation_id,
-      source_url: source_url,
-      media_id: media_id,
-      path: path,
-      size_bytes: File.size(source_path),
-      md5: Digest::MD5.file(source_path).hexdigest,
-    )
-  end
-
-  def get_image(media_id)
-    @db.get_first_row("SELECT * FROM images WHERE media_id = ?", [media_id])
-  end
-
-  def get_images_for_fingerprint(md5, size_bytes)
-    @db.execute(
-      "SELECT * FROM images WHERE md5 = ? AND size_bytes = ? ORDER BY media_id",
-      [md5, size_bytes]
-    )
-  end
-
-  def include_source_url?(source_url)
-    !!@db.get_first_row(
-      "SELECT media_id FROM images WHERE media_id = ? LIMIT 1",
-      [source_url.to_s[/\d+$/]]
-    )
-  end
-
   def source_was_deleted?(source_url)
-    media_id = source_url[/\d+$/]
-
-    row = @db.get_first_row(
-      "SELECT media_id FROM images WHERE media_id = ? AND status = 'duplicate_delete' LIMIT 1",
+    media_id = source_url.to_s[/\d+$/]
+    !!@db.get_first_row(
+      "SELECT 1 FROM images WHERE media_id = ? AND status = 'duplicate_delete' LIMIT 1",
       [media_id]
     )
-    !!row
   end
 
   def rename_path(old_path, new_path)
@@ -232,27 +216,6 @@ class ImageLedger
     }
   end
 
-  def find_canonical(md5, size_bytes)
-    @db.get_first_row(
-      %{
-        SELECT media_id, status
-        FROM images
-        WHERE md5 = ? AND size_bytes = ?
-          AND status IN ('unique', 'duplicate_keep')
-        ORDER BY media_id
-        LIMIT 1
-      },
-      [md5, size_bytes]
-    )
-  end
-
-  def mark_as_duplicate_keep(media_id)
-    @db.execute(
-      "UPDATE images SET status = ? WHERE media_id = ?",
-      ["duplicate_keep", media_id]
-    )
-  end
-
   def insert_row(username:, conversation_id:, media_id:, path:, size_bytes:, md5:, status:, canonical_media_id:)
     @db.execute(
       %{
@@ -262,17 +225,6 @@ class ImageLedger
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       },
       [media_id, username.to_s, conversation_id.to_s, path, size_bytes, md5, status, canonical_media_id]
-    )
-  end
-
-  def refresh_row(media_id:, username:, conversation_id:, path:, size_bytes:, md5:)
-    @db.execute(
-      %{
-        UPDATE images
-        SET username = ?, conversation_id = ?, path = ?, size_bytes = ?, md5 = ?
-        WHERE media_id = ?
-      },
-      [username.to_s, conversation_id.to_s, path, size_bytes, md5, media_id]
     )
   end
 
