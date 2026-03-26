@@ -31,6 +31,45 @@ class Client
     )
   end
 
+  def each_conversation(incremental = false)
+    raise unless block_given?
+    cursor = nil
+
+    loop do
+      history = self.download_history(cursor)
+      conversations = history.data.grok_conversation_history.items
+
+      conversations.each do |each|
+        title = each.title
+        conversation_id = each.grokConversation.rest_id
+
+        puts title
+        puts "  #{conversation_id}"
+
+        if incremental
+          conversation_url = self.build_conversation_url(conversation_id)
+          previous_content = @cache.most_recent_content(conversation_url)
+        end
+
+        conversation = self.download_conversation(conversation_id)
+        conversation['conversation_id'] = conversation_id.to_s
+
+        if incremental
+          current_content = @cache.most_recent_content(conversation_url)
+          if previous_content && previous_content == current_content
+            puts "  unchanged since previous run, stopping incremental download"
+            return
+          end
+        end
+
+        yield conversation
+      end
+
+      break unless history.data.grok_conversation_history.include? 'cursor'
+      cursor = history.data.grok_conversation_history.cursor
+    end
+  end
+
   def download_conversation(rest_id)
     self.download self.build_conversation_url(rest_id)
   end

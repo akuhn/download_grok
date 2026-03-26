@@ -58,80 +58,45 @@ if flags.include_mark?
 end
 
 project_map = JSON.parse((File.read('project_map.json') rescue "{}"))
-cursor = nil
 
-incremental = flags.include_incremental?
-should_stop_because_incremental = false
+grok.each_conversation(flags.include_incremental?) do |conversation|
 
-loop do
+  messages = conversation.data.grok_conversation_items_by_rest_id.items rescue binding.pry
+  puts "  #{messages.length} messages found"
 
-  history = grok.download_history(cursor)
-  conversations = history.data.grok_conversation_history.items
-
-  conversations.each do |each|
-    title = each.title
-    conversation_id = each.grokConversation.rest_id
-    project_folder = project_map.fetch(conversation_id.to_s, 'images')
-
-    puts title
-    puts "  #{conversation_id}"
-
-    if incremental
-      conversation_url = grok.build_conversation_url(conversation_id)
-      previous_content = grok.cache.most_recent_content(conversation_url)
-    end
-
-    conversation = grok.download_conversation(conversation_id)
-
-    if incremental
-      current_content = grok.cache.most_recent_content(conversation_url)
-      if previous_content && previous_content == current_content
-        puts "  unchanged since previous run, stopping incremental download"
-        should_stop_because_incremental = true
-        break
-      end
-    end
-
-    messages = conversation.data.grok_conversation_items_by_rest_id.items rescue binding.pry
-
-    puts "  #{messages.length} messages found"
-    if project_folder.nil?
-      puts "  Skipping downloads for this conversation"
-      next
-    elsif project_folder != 'images'
-      puts "  Using folder #{project_folder} ..."
-    end
-
-    image_urls = (
-      messages.flat_map(&'file_attachments').compact.map(&'url') +
-      messages.flat_map(&'card_attachments').compact
-        .map { JSON.parse it }
-        .map(&'imageAttachment.imageUrl').compact
-        .reject { it.end_with? "/50" }
-        .map { |image_url|
-          raise unless image_url =~ /api.*grok.attachment.json\?mediaId=(\d+$)/
-          "https://ton.x.com/i/ton/data/grok-attachment/#{$1}"
-        }
-    )
-
-    image_urls.each do |url|
-
-      filename = "#{conversation_id}_#{url[/\d+$/]}_#{grok.hashed_user_id}.jpg"
-      old_fname = "images/#{filename}"
-      fname = "#{project_folder}/#{filename}"
-
-      FileUtils.mkdir_p(project_folder)
-      File.rename(old_fname, fname) if File.exist?(old_fname) && !File.exist?(fname)
-
-      next if File.exist?(fname)
-      puts "  downloading #{fname} ..."
-      IO.copy_stream(URI.open(url, grok.cookie), fname)
-    end
+  project_folder = project_map.fetch(conversation["conversation_id"], 'images')
+  if project_folder.nil?
+    puts "  Skipping downloads for this conversation"
+    next
+  elsif project_folder != 'images'
+    puts "  Using folder #{project_folder} ..."
   end
 
-  break if should_stop_because_incremental
-  break unless history.data.grok_conversation_history.include? 'cursor'
-  cursor = history.data.grok_conversation_history.cursor
+  image_urls = (
+    messages.flat_map(&'file_attachments').compact.map(&'url') +
+    messages.flat_map(&'card_attachments').compact
+      .map { JSON.parse it }
+      .map(&'imageAttachment.imageUrl').compact
+      .reject { it.end_with? "/50" }
+      .map { |image_url|
+        raise unless image_url =~ /api.*grok.attachment.json\?mediaId=(\d+$)/
+        "https://ton.x.com/i/ton/data/grok-attachment/#{$1}"
+      }
+  )
+
+  image_urls.each do |url|
+
+    filename = "#{conversation["conversation_id"]}_#{url[/\d+$/]}_#{grok.hashed_user_id}.jpg"
+    old_fname = "images/#{filename}"
+    fname = "#{project_folder}/#{filename}"
+
+    FileUtils.mkdir_p(project_folder)
+    File.rename(old_fname, fname) if File.exist?(old_fname) && !File.exist?(fname)
+
+    next if File.exist?(fname)
+    puts "  downloading #{fname} ..."
+    IO.copy_stream(URI.open(url, grok.cookie), fname)
+  end
 end
 
 
