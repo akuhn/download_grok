@@ -80,6 +80,16 @@ class ImageLedger
     !!row
   end
 
+  def rename_path(old_path, new_path)
+    return 0 if old_path == new_path
+
+    @db.execute(
+      "UPDATE images SET path = ?, updated_at = CURRENT_TIMESTAMP WHERE path = ?",
+      [new_path, old_path]
+    )
+    @db.changes
+  end
+
   private
 
   def ensure_schema!

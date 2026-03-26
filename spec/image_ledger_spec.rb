@@ -146,4 +146,23 @@ RSpec.describe ImageLedger do
       expect(ledger.include_source_url?(source_url)).to eq(true)
     end
   end
+
+  it "updates stored path when a file gets renamed" do
+    with_ledger do |ledger|
+      old_path = "images/conv_100_12345678.jpg"
+      new_path = "images/conv_100.jpg"
+      row = ledger.record_download(
+        username: "dana",
+        conversation_id: "conv",
+        source_url: "https://x.com/asset",
+        media_id: "100",
+        path: old_path,
+        size_bytes: 9876,
+        md5: "ffff1111",
+      )
+
+      expect(ledger.rename_path(old_path, new_path)).to eq(1)
+      expect(ledger.get_image(row.fetch(:id)).fetch("path")).to eq(new_path)
+    end
+  end
 end
