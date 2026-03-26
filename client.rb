@@ -3,14 +3,12 @@ require %(net/http)
 require %(uri)
 require %(openssl)
 require %(pry)
-require %(digest)
 
 require './cache'
 
 class Client
 
   attr_reader :cache
-  attr_reader :hashed_user_id
 
   def initialize(cookie_fname, sqlite_fname, partition, flags)
     @cookie = File.readlines(cookie_fname, chomp: true).join('; ')
@@ -19,9 +17,6 @@ class Client
 
     @http = Net::HTTP.new("x.com", 443)
     @http.use_ssl = true
-
-    digest = Digest::SHA256.hexdigest(@cookie[/twid=u%3D(\d+)/])
-    @hashed_user_id = (digest.to_i(16) % 100000000).to_s.rjust(8, '0')
   end
 
   def download_history(cursor = nil)

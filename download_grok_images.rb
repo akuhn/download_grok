@@ -106,20 +106,13 @@ def run_for_user(username, partition, flags, image_ledger)
     image_urls.sort.each do |url|
       media_id = url[/\d+$/]
       filename = "#{conversation["conversation_id"]}_#{media_id}.jpg"
-      legacy_filename = "#{conversation["conversation_id"]}_#{media_id}_#{grok.hashed_user_id}.jpg"
       fname = "#{project_folder}/#{filename}"
+      old_fname = "images/#{filename}"
 
       FileUtils.mkdir_p(project_folder)
-
-      [
-        "#{project_folder}/#{legacy_filename}",
-        "images/#{legacy_filename}",
-      ].uniq.each do |legacy_path|
-        next unless File.exist?(legacy_path)
-        next if File.exist?(fname)
-
-        File.rename(legacy_path, fname)
-        image_ledger.rename_path(legacy_path, fname)
+      if old_fname != fname && File.exist?(old_fname) && !File.exist?(fname)
+        File.rename(old_fname, fname)
+        image_ledger.rename_path(old_fname, fname)
       end
 
       next if image_ledger.include_source_url?(url)

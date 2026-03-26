@@ -147,10 +147,10 @@ RSpec.describe ImageLedger do
     end
   end
 
-  it "updates stored path when a file gets renamed" do
+  it "updates stored path when a file moves folders" do
     with_ledger do |ledger|
-      old_path = "images/conv_100_12345678.jpg"
-      new_path = "images/conv_100.jpg"
+      old_path = "images/conv_100.jpg"
+      new_path = "project/conv_100.jpg"
       row = ledger.record_download(
         username: "dana",
         conversation_id: "conv",
