@@ -103,64 +103,56 @@ class ImageLedger
   end
 
   def record_download(username:, conversation_id:, source_url:, media_id:, path:, size_bytes:, md5:)
-    media_id = normalize_media_id(media_id)
+    @db.transaction do
+      existing = get_image(media_id)
+      if existing
+        refresh_row(
+          media_id: media_id,
+          username: username,
+          conversation_id: conversation_id,
+          path: path,
+          size_bytes: size_bytes,
+          md5: md5,
+        )
+        return {
+          media_id: media_id,
+          status: existing["status"],
+          canonical_media_id: existing["canonical_media_id"],
+        }
+      end
 
-    @db.transaction
-    existing = get_image(media_id)
-    if existing
-      refresh_row(
-        media_id: media_id,
-        username: username,
-        conversation_id: conversation_id,
-        path: path,
-        size_bytes: size_bytes,
-        md5: md5,
-      )
-      @db.commit
-      return {
-        media_id: media_id,
-        status: existing["status"],
-        canonical_media_id: existing["canonical_media_id"],
-      }
+      canonical = find_canonical(md5, size_bytes)
+      if canonical
+        mark_as_duplicate_keep(canonical["media_id"]) unless canonical["status"] == "duplicate_keep"
+        insert_row(
+          username: username,
+          conversation_id: conversation_id,
+          media_id: media_id,
+          path: path,
+          size_bytes: size_bytes,
+          md5: md5,
+          status: "duplicate_delete",
+          canonical_media_id: canonical["media_id"],
+        )
+        {
+          media_id: media_id,
+          status: "duplicate_delete",
+          canonical_media_id: canonical["media_id"],
+        }
+      else
+        insert_row(
+          username: username,
+          conversation_id: conversation_id,
+          media_id: media_id,
+          path: path,
+          size_bytes: size_bytes,
+          md5: md5,
+          status: "unique",
+          canonical_media_id: nil,
+        )
+        { media_id: media_id, status: "unique", canonical_media_id: nil }
+      end
     end
-
-    canonical = find_canonical(md5, size_bytes)
-
-    if canonical
-      mark_as_duplicate_keep(canonical["media_id"]) unless canonical["status"] == "duplicate_keep"
-      insert_row(
-        username: username,
-        conversation_id: conversation_id,
-        media_id: media_id,
-        path: path,
-        size_bytes: size_bytes,
-        md5: md5,
-        status: "duplicate_delete",
-        canonical_media_id: canonical["media_id"],
-      )
-      @db.commit
-      {
-        media_id: media_id,
-        status: "duplicate_delete",
-        canonical_media_id: canonical["media_id"],
-      }
-    else
-      insert_row(
-        username: username,
-        conversation_id: conversation_id,
-        media_id: media_id,
-        path: path,
-        size_bytes: size_bytes,
-        md5: md5,
-        status: "unique",
-        canonical_media_id: nil,
-      )
-      @db.commit
-      { media_id: media_id, status: "unique", canonical_media_id: nil }
-    end
-  rescue StandardError
-    @db.rollback
-    raise
   end
 
   def record_file_download(username:, conversation_id:, source_url:, media_id:, source_path:, path:)
@@ -176,7 +168,7 @@ class ImageLedger
   end
 
   def get_image(media_id)
-    @db.get_first_row("SELECT * FROM images WHERE media_id = ?", [normalize_media_id(media_id)])
+    @db.get_first_row("SELECT * FROM images WHERE media_id = ?", [media_id])
   end
 
   def get_images_for_fingerprint(md5, size_bytes)
@@ -187,16 +179,18 @@ class ImageLedger
   end
 
   def include_source_url?(source_url)
-    include_media_id?(source_url.to_s[/\d+$/])
+    !!@db.get_first_row(
+      "SELECT media_id FROM images WHERE media_id = ? LIMIT 1",
+      [source_url.to_s[/\d+$/]]
+    )
   end
 
   def source_was_deleted?(source_url)
-    media_id = source_url.to_s[/\d+$/]
-    return false unless media_id
+    media_id = source_url[/\d+$/]
 
     row = @db.get_first_row(
-      "SELECT media_id FROM images WHERE media_id = ? AND status = ? LIMIT 1",
-      [media_id, "duplicate_delete"]
+      "SELECT media_id FROM images WHERE media_id = ? AND status = 'duplicate_delete' LIMIT 1",
+      [media_id]
     )
     !!row
   end
@@ -280,23 +274,6 @@ class ImageLedger
       },
       [username.to_s, conversation_id.to_s, path, size_bytes, md5, media_id]
     )
-  end
-
-  def include_media_id?(media_id)
-    return false if media_id.to_s.strip.empty?
-
-    row = @db.get_first_row(
-      "SELECT media_id FROM images WHERE media_id = ? LIMIT 1",
-      [media_id.to_s]
-    )
-    !!row
-  end
-
-  def normalize_media_id(media_id)
-    media_id = media_id.to_s.strip
-    raise ArgumentError, "media_id is required" if media_id.empty?
-
-    media_id
   end
 
 end
