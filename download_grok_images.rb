@@ -20,8 +20,10 @@ flags = OptionsByExample.read(DATA).parse(ARGV)
 
 if flags.include_random?
   files = Dir.glob('images/*').select { it =~ /(jpg|png)$/ }
-  selection = files.sample(25) # choose a uniform sample of n=25
-  puts selection.each { |fname| system('open', fname) }
+  grouped = files.group_by { |fname| fname.split('/').last.split('_').first }
+  selection = grouped.values.sample(25).map(&:sample)
+  selection.each { |fname| system('open', fname) }
+  puts selection
   exit
 end
 
