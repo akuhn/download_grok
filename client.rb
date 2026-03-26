@@ -26,7 +26,7 @@ class Client
     )
   end
 
-  def each_conversation(incremental = false)
+  def each_conversation(no_incremental = false)
     raise unless block_given?
     cursor = nil
 
@@ -41,7 +41,7 @@ class Client
         puts title
         puts "  #{conversation_id}"
 
-        if incremental
+        unless no_incremental
           conversation_url = self.build_conversation_url(conversation_id)
           previous_content = @cache.most_recent_content(conversation_url)
         end
@@ -49,7 +49,7 @@ class Client
         conversation = self.download_conversation(conversation_id)
         conversation['conversation_id'] = conversation_id.to_s
 
-        if incremental
+        unless no_incremental
           current_content = @cache.most_recent_content(conversation_url)
           if previous_content && previous_content == current_content
             puts "  unchanged since previous run, stopping incremental download"

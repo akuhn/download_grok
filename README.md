@@ -17,7 +17,7 @@ bundle exec ruby download_grok_images.rb -u username
 If you omit `-u/--user`, it uses `default` and looks for `my_cookie_default.txt`. By default the cache partition is the current local date in `YYYY-MM-DD` format, which means cached API responses are reused only within that day. If you want a longer-lived cache while iterating, pass a named partition (for example `--partition dev`).
 If you want to run the same process for every local cookie file, use `--all`; it scans for `my_cookie_*.txt` and runs once per discovered username.
 
-If you want a quicker incremental pass, add `--incremental`. It compares each conversation response against the most recent cached response for that same request URL across all partitions and stops at the first unchanged one.
+By default it runs incrementally: it compares each conversation response against the most recent cached response for that same request URL across all partitions and stops at the first unchanged one. If you want a full pass, use `--force`.
 
 Responses are still stored in `my_cache_<username>.sqlite`, but they are now partitioned inside that database. Delete rows from that cache if you want to force a refetch for a specific url, delete the file if you want a full clean run, or switch partitions if you want an isolated cache namespace.
 

@@ -79,7 +79,7 @@ def run_for_user(username, partition, flags)
   project_map = JSON.parse((File.read('project_map.json') rescue "{}"))
   image_ledger = ImageLedger.new("my_downloaded_images.sqlite", username: username, project_map: project_map)
 
-  grok.each_conversation(flags.include_incremental?) do |conversation|
+  grok.each_conversation(flags.include_force?) do |conversation|
 
     messages = conversation.data.grok_conversation_items_by_rest_id.items rescue binding.pry
     puts "  #{messages.length} messages found"
@@ -140,10 +140,10 @@ Options:
   -u, --user NAME           Use specific cookie and cache files
   -p, --partition NAME      Cache partition to use, defaults to today's date
   -m, --mark URL            Mark a cached response as stale and refetch this time
+  -f, --force               Force a full scan, disable incremental updates
   --list-partitions         List all partitions current user and exit
   --drop-partition NAME     Delete all cache rows in NAME and exit
   --random                  Open 25 random files from the images folder and exit
-  --incremental             Stop once a conversation response is unchanged
   --backfill                Classify existing files and apply dedupe status/deletion
   --all                     Run for every my_cookie_*.txt user
   -v, --verbose             Print each URL when it is fetched from the network
