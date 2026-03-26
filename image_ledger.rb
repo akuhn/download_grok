@@ -107,19 +107,39 @@ class ImageLedger
     @db.transaction do
       existing = @db.get_first_row("SELECT * FROM images WHERE media_id = ?", [media_id])
       if existing
-        @db.execute(
+        if existing["size_bytes"] != size_bytes || existing["md5"] != md5
+          raise ArgumentError, "media_id #{media_id} already exists with different fingerprint"
+        end
+
+        canonical = @db.get_first_row(
           %{
-            UPDATE images
-            SET username = ?, conversation_id = ?, path = ?, size_bytes = ?, md5 = ?
-            WHERE media_id = ?
+            SELECT media_id
+            FROM images
+            WHERE md5 = ? AND size_bytes = ?
+              AND status IN ('unique', 'duplicate_keep')
+            ORDER BY media_id
+            LIMIT 1
           },
-          [username.to_s, conversation_id.to_s, path, size_bytes, md5, media_id]
+          [md5, size_bytes]
         )
-        {
-          media_id: media_id,
-          status: existing["status"],
-          canonical_media_id: existing["canonical_media_id"],
-        }
+
+        if canonical && canonical["media_id"] != media_id
+          @db.execute(
+            "UPDATE images SET status = ?, canonical_media_id = ? WHERE media_id = ?",
+            ["duplicate_delete", canonical["media_id"], media_id]
+          )
+          {
+            media_id: media_id,
+            status: "duplicate_delete",
+            canonical_media_id: canonical["media_id"],
+          }
+        else
+          {
+            media_id: media_id,
+            status: existing["status"],
+            canonical_media_id: existing["canonical_media_id"],
+          }
+        end
       else
         canonical = @db.get_first_row(
           %{
