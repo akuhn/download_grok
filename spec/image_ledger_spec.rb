@@ -1,6 +1,4 @@
 require "tmpdir"
-require "time"
-
 require_relative "../image_ledger"
 
 RSpec.describe ImageLedger do
@@ -23,9 +21,9 @@ RSpec.describe ImageLedger do
         md5: "abc123",
       )
 
-      row = ledger.get_image(result.fetch(:id))
+      row = ledger.get_image(result.fetch(:media_id))
       expect(row.fetch("status")).to eq("unique")
-      expect(row.fetch("canonical_image_id")).to be_nil
+      expect(row.fetch("canonical_media_id")).to be_nil
     end
   end
 
@@ -51,12 +49,12 @@ RSpec.describe ImageLedger do
         md5: "abc123",
       )
 
-      first_row = ledger.get_image(first.fetch(:id))
-      second_row = ledger.get_image(second.fetch(:id))
+      first_row = ledger.get_image(first.fetch(:media_id))
+      second_row = ledger.get_image(second.fetch(:media_id))
 
       expect(first_row.fetch("status")).to eq("duplicate_keep")
       expect(second_row.fetch("status")).to eq("duplicate_delete")
-      expect(second_row.fetch("canonical_image_id")).to eq(first_row.fetch("id"))
+      expect(second_row.fetch("canonical_media_id")).to eq(first_row.fetch("media_id"))
     end
   end
 
@@ -92,12 +90,12 @@ RSpec.describe ImageLedger do
         md5: "abc123",
       )
 
-      first_row = ledger.get_image(first.fetch(:id))
-      third_row = ledger.get_image(third.fetch(:id))
+      first_row = ledger.get_image(first.fetch(:media_id))
+      third_row = ledger.get_image(third.fetch(:media_id))
 
       expect(first_row.fetch("status")).to eq("duplicate_keep")
       expect(third_row.fetch("status")).to eq("duplicate_delete")
-      expect(third_row.fetch("canonical_image_id")).to eq(first_row.fetch("id"))
+      expect(third_row.fetch("canonical_media_id")).to eq(first_row.fetch("media_id"))
     end
   end
 
@@ -105,32 +103,28 @@ RSpec.describe ImageLedger do
     with_ledger do |ledger|
       result = ledger.record_download(
         username: "dana",
-        conversation_id: "conv-44",
+        conversation_id: 44,
         source_url: "https://x.com/asset",
-        media_id: "555",
+        media_id: 555,
         path: "images/d.jpg",
         size_bytes: 9876,
         md5: "ffff1111",
       )
 
-      row = ledger.get_image(result.fetch(:id))
+      row = ledger.get_image(result.fetch(:media_id))
       expect(row.fetch("username")).to eq("dana")
-      expect(row.fetch("conversation_id")).to eq("conv-44")
-      expect(row.fetch("source_url")).to eq("https://x.com/asset")
+      expect(row.fetch("conversation_id")).to eq("44")
       expect(row.fetch("media_id")).to eq("555")
       expect(row.fetch("path")).to eq("images/d.jpg")
       expect(row.fetch("size_bytes")).to eq(9876)
       expect(row.fetch("md5")).to eq("ffff1111")
-      expect(row.fetch("downloaded_at")).not_to be_nil
-      expect(row.fetch("updated_at")).not_to be_nil
-      expect { Time.parse(row.fetch("downloaded_at")) }.not_to raise_error
-      expect { Time.parse(row.fetch("updated_at")) }.not_to raise_error
+      expect(row.keys).not_to include("id", "source_url", "downloaded_at", "updated_at")
     end
   end
 
   it "reports whether a source_url has already been indexed" do
     with_ledger do |ledger|
-      source_url = "https://x.com/asset"
+      source_url = "https://x.com/555"
       expect(ledger.include_source_url?(source_url)).to eq(false)
 
       ledger.record_download(
@@ -162,7 +156,8 @@ RSpec.describe ImageLedger do
       )
 
       expect(ledger.rename_path(old_path, new_path)).to eq(1)
-      expect(ledger.get_image(row.fetch(:id)).fetch("path")).to eq(new_path)
+      expect(ledger.get_image(row.fetch(:media_id)).fetch("path")).to eq(new_path)
     end
   end
+
 end

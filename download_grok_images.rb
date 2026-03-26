@@ -25,7 +25,6 @@ if flags.include_random?
   exit
 end
 
-image_ledger = ImageLedger.new("my_downloaded_images.sqlite")
 partition = flags.fetch(:partition) { Date.today.iso8601 }
 
 def find_usernames(flags)
@@ -57,10 +56,9 @@ def run_partition_command(cache_fname, partition, flags)
   false
 end
 
-def run_for_user(username, partition, flags, image_ledger)
+def run_for_user(username, partition, flags)
   cookie_fname = "my_cookie_#{username}.txt"
   cache_fname = "my_cache_#{username}.sqlite"
-  backfill = flags.include_backfill?
 
   unless File.exist?(cookie_fname)
     puts "Skipping #{username}, missing #{cookie_fname}"
@@ -77,13 +75,14 @@ def run_for_user(username, partition, flags, image_ledger)
   end
 
   project_map = JSON.parse((File.read('project_map.json') rescue "{}"))
+  image_ledger = ImageLedger.new("my_downloaded_images.sqlite", username: username, project_map: project_map)
 
   grok.each_conversation(flags.include_incremental?) do |conversation|
 
     messages = conversation.data.grok_conversation_items_by_rest_id.items rescue binding.pry
     puts "  #{messages.length} messages found"
 
-    project_folder = project_map.fetch(conversation["conversation_id"], 'images')
+    project_folder = image_ledger.project_folder_for(conversation["conversation_id"])
     if project_folder.nil?
       puts "  Skipping downloads for this conversation"
       next
@@ -104,21 +103,14 @@ def run_for_user(username, partition, flags, image_ledger)
     )
 
     image_urls.sort.each do |url|
-      image = image_ledger.find_image(
-        url: url,
-        username: username,
-        conversation: conversation,
-        project_folder: project_folder
-      )
-
-      next if image.has_already_been_deleted?
-      image.move_from_legacy_path
+      image = image_ledger.make_image(url: url, conversation: conversation)
+      next if image.has_been_deleted?
+      image.move_if_folder_changed
 
       if image.exists_on_disk?
-        image.deduplicate_and_maybe_delete_file if backfill
-        next
+        image.deduplicate_and_maybe_delete_file if flags.include_backfill?
       else
-        image.download_to_disk(cookie: grok.cookie)
+        image.download_and_deduplicate(cookie: grok.cookie)
       end
     end
   end
@@ -132,7 +124,7 @@ end
 
 usernames.each do |username|
   puts "---- running for #{username} #{'-' * (40 - username.length)}" if usernames.length > 1
-  run_for_user(username, partition, flags, image_ledger)
+  run_for_user(username, partition, flags)
   puts if usernames.length > 1
 end
 
