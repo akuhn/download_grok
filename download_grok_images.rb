@@ -2,10 +2,12 @@ require %(json)
 require %(date)
 require %(options_by_example)
 require %(open-uri)
+require %(tempfile)
 
 require './cache'
 require './client'
 require './extensions'
+require './image_ledger'
 
 
 # This script does a tremendous job, really tremendous. It goes to twitter,
@@ -51,6 +53,8 @@ if flags.include_random?
 end
 
 grok = Client.new cookie_fname, cache_fname, partition, flags
+image_ledger = ImageLedger.new("my_downloaded_images.sqlite")
+backfill = flags.include_backfill?
 
 if flags.include_mark?
   grok.cache.mark_as_stale flags.get(:mark)
@@ -85,17 +89,56 @@ grok.each_conversation(flags.include_incremental?) do |conversation|
   )
 
   image_urls.each do |url|
+    next if image_ledger.include_source_url?(url)
 
-    filename = "#{conversation["conversation_id"]}_#{url[/\d+$/]}_#{grok.hashed_user_id}.jpg"
+    media_id = url[/\d+$/]
+
+    filename = "#{conversation["conversation_id"]}_#{media_id}_#{grok.hashed_user_id}.jpg"
     old_fname = "images/#{filename}"
     fname = "#{project_folder}/#{filename}"
 
     FileUtils.mkdir_p(project_folder)
     File.rename(old_fname, fname) if File.exist?(old_fname) && !File.exist?(fname)
 
-    next if File.exist?(fname)
+    if File.exist?(fname)
+      if backfill
+        result = image_ledger.record_file_download(
+          username: username,
+          conversation_id: conversation["conversation_id"],
+          source_url: url,
+          media_id: media_id,
+          source_path: fname,
+          path: fname,
+        )
+        if result.fetch(:status) == "duplicate_delete"
+          puts "  duplicate existing image, deleting #{fname}"
+          File.delete(fname) if File.exist?(fname)
+        end
+      end
+      next
+    end
     puts "  downloading #{fname} ..."
-    IO.copy_stream(URI.open(url, grok.cookie), fname)
+
+    Tempfile.create([filename, ".tmp"]) do |tmp|
+      IO.copy_stream(URI.open(url, grok.cookie), tmp)
+      tmp.flush
+
+      result = image_ledger.record_file_download(
+        username: username,
+        conversation_id: conversation["conversation_id"],
+        source_url: url,
+        media_id: media_id,
+        source_path: tmp.path,
+        path: fname,
+      )
+
+      if result.fetch(:status) == "duplicate_delete"
+        puts "  duplicate image, deleting #{fname}"
+        next
+      end
+
+      FileUtils.mv(tmp.path, fname)
+    end
   end
 end
 
@@ -113,6 +156,7 @@ Options:
   --drop-partition NAME     Delete all cache rows in NAME and exit
   --random                  Open 25 random files from the images folder and exit
   --incremental             Stop once a conversation response is unchanged
+  --backfill                Classify existing files and apply dedupe status/deletion
   -v, --verbose             Print each URL when it is fetched from the network
 
 The script expects a file named "my_cookie_username.txt" containing three

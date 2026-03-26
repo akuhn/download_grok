@@ -20,6 +20,8 @@ If you want a quicker incremental pass, add `--incremental`. It compares each co
 
 Responses are still stored in `my_cache_<username>.sqlite`, but they are now partitioned inside that database. Delete rows from that cache if you want to force a refetch for a specific url, delete the file if you want a full clean run, or switch partitions if you want an isolated cache namespace.
 
+Downloaded images are also tracked in a shared `images.sqlite` ledger in the project root. Every downloaded file gets a row with user, timestamp, source URL, path, size, md5 and dedupe status (`unique`, `duplicate_keep`, `duplicate_delete`).
+
 To remove one partition without touching others, run `bundle exec ruby download_grok_images.rb -u username --drop-partition dev`. You can inspect available names with `--list-partitions`.
 
 To quickly browse what you already downloaded, run `bundle exec ruby download_grok_images.rb --random` and it opens 25 random files from `images/`.
