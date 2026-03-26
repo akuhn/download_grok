@@ -28,7 +28,7 @@ RSpec.describe ImageLedger do
 
   it "keeps a unique existing media row unchanged for matching fingerprint" do
     with_file("same-bits") do |source_path|
-      ledger.save_download(
+      ledger.check_for_duplicates_and_update_or_insert_rows(
         username: "first-user",
         conversation_id: "first-conversation",
         media_id: "m1",
@@ -36,7 +36,7 @@ RSpec.describe ImageLedger do
         path: "images/first.jpg",
       )
 
-      ledger.save_download(
+      ledger.check_for_duplicates_and_update_or_insert_rows(
         username: "second-user",
         conversation_id: "second-conversation",
         media_id: "m1",
@@ -54,7 +54,7 @@ RSpec.describe ImageLedger do
 
   it "raises when existing media_id has a different fingerprint" do
     with_file("one") do |first|
-      ledger.save_download(
+      ledger.check_for_duplicates_and_update_or_insert_rows(
         username: "user",
         conversation_id: "conversation",
         media_id: "m1",
@@ -64,7 +64,7 @@ RSpec.describe ImageLedger do
 
       with_file("two") do |second|
         expect {
-          ledger.save_download(
+          ledger.check_for_duplicates_and_update_or_insert_rows(
             username: "user",
             conversation_id: "conversation",
             media_id: "m1",
@@ -103,7 +103,7 @@ RSpec.describe ImageLedger do
         canonical_media_id: nil,
       )
 
-      result = ledger.save_download(
+      result = ledger.check_for_duplicates_and_update_or_insert_rows(
         username: "u2",
         conversation_id: "c2",
         media_id: "200",
@@ -148,7 +148,7 @@ RSpec.describe ImageLedger do
       )
 
       expect {
-        ledger.save_download(
+        ledger.check_for_duplicates_and_update_or_insert_rows(
           username: "u3",
           conversation_id: "c3",
           media_id: "300",
@@ -161,7 +161,7 @@ RSpec.describe ImageLedger do
 
   it "marks new media as duplicate_delete when canonical exists" do
     with_file("same-bits") do |source_path|
-      first = ledger.save_download(
+      first = ledger.check_for_duplicates_and_update_or_insert_rows(
         username: "u1",
         conversation_id: "c1",
         media_id: "100",
@@ -169,7 +169,7 @@ RSpec.describe ImageLedger do
         path: "images/100.jpg",
       )
 
-      second = ledger.save_download(
+      second = ledger.check_for_duplicates_and_update_or_insert_rows(
         username: "u2",
         conversation_id: "c2",
         media_id: "200",
