@@ -1,11 +1,102 @@
 require %(sqlite3)
 require %(digest)
+require %(fileutils)
+require %(open-uri)
+require %(tempfile)
 
 class ImageLedger
+  class Image
+    def initialize(ledger:, username:, source_url:, conversation_id:, media_id:, filename:, old_fname:, fname:)
+      @ledger = ledger
+      @username = username
+      @source_url = source_url
+      @conversation_id = conversation_id
+      @media_id = media_id
+      @filename = filename
+      @old_fname = old_fname
+      @fname = fname
+    end
+
+    def has_already_been_deleted?
+      @ledger.source_was_deleted?(@source_url)
+    end
+
+    def move_from_legacy_path
+      FileUtils.mkdir_p(File.dirname(@fname))
+      return unless @old_fname != @fname && File.exist?(@old_fname) && !File.exist?(@fname)
+
+      File.rename(@old_fname, @fname)
+      @ledger.rename_path(@old_fname, @fname)
+    end
+
+    def exists_on_disk?
+      File.exist?(@fname)
+    end
+
+    def deduplicate_and_maybe_delete_file
+      result = @ledger.record_file_download(
+        username: @username,
+        conversation_id: @conversation_id,
+        source_url: @source_url,
+        media_id: @media_id,
+        source_path: @fname,
+        path: @fname,
+      )
+
+      return result unless result.fetch(:status) == "duplicate_delete"
+
+      puts "  duplicate existing image, deleting #{@fname}"
+      File.delete(@fname) if File.exist?(@fname)
+      result
+    end
+
+    def download_to_disk(cookie:)
+      puts "  downloading #{@fname} ..."
+
+      Tempfile.create([@filename, ".tmp"]) do |tmp|
+        IO.copy_stream(URI.open(@source_url, cookie), tmp)
+        tmp.flush
+
+        result = @ledger.record_file_download(
+          username: @username,
+          conversation_id: @conversation_id,
+          source_url: @source_url,
+          media_id: @media_id,
+          source_path: tmp.path,
+          path: @fname,
+        )
+
+        if result.fetch(:status) == "duplicate_delete"
+          puts "  duplicate image, deleting #{@fname}"
+          next
+        end
+
+        FileUtils.mv(tmp.path, @fname)
+      end
+    end
+  end
+
   def initialize(path)
     @db = SQLite3::Database.new(path)
     @db.results_as_hash = true
     ensure_schema!
+  end
+
+  def find_image(url:, username:, conversation:, project_folder:)
+    conversation_id = conversation["conversation_id"]
+    media_id = url[/\d+$/]
+    filename = "#{conversation_id}_#{media_id}.jpg"
+
+    Image.new(
+      ledger: self,
+      username: username,
+      source_url: url,
+      conversation_id: conversation_id,
+      media_id: media_id,
+      filename: filename,
+      old_fname: "images/#{filename}",
+      fname: "#{project_folder}/#{filename}",
+    )
   end
 
   def record_download(username:, conversation_id:, source_url:, media_id:, path:, size_bytes:, md5:)
@@ -76,6 +167,16 @@ class ImageLedger
     row = @db.get_first_row(
       "SELECT id FROM images WHERE source_url = ? LIMIT 1",
       [source_url]
+    )
+    !!row
+  end
+
+  def source_was_deleted?(source_url)
+    return false unless source_url
+
+    row = @db.get_first_row(
+      "SELECT id FROM images WHERE source_url = ? AND status = ? LIMIT 1",
+      [source_url, "duplicate_delete"]
     )
     !!row
   end

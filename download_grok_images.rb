@@ -104,57 +104,21 @@ def run_for_user(username, partition, flags, image_ledger)
     )
 
     image_urls.sort.each do |url|
-      media_id = url[/\d+$/]
-      filename = "#{conversation["conversation_id"]}_#{media_id}.jpg"
-      fname = "#{project_folder}/#{filename}"
-      old_fname = "images/#{filename}"
+      image = image_ledger.find_image(
+        url: url,
+        username: username,
+        conversation: conversation,
+        project_folder: project_folder
+      )
 
-      FileUtils.mkdir_p(project_folder)
-      if old_fname != fname && File.exist?(old_fname) && !File.exist?(fname)
-        File.rename(old_fname, fname)
-        image_ledger.rename_path(old_fname, fname)
-      end
+      next if image.has_already_been_deleted?
+      image.move_from_legacy_path
 
-      next if image_ledger.include_source_url?(url)
-
-      if File.exist?(fname)
-        if backfill
-          result = image_ledger.record_file_download(
-            username: username,
-            conversation_id: conversation["conversation_id"],
-            source_url: url,
-            media_id: media_id,
-            source_path: fname,
-            path: fname,
-          )
-          if result.fetch(:status) == "duplicate_delete"
-            puts "  duplicate existing image, deleting #{fname}"
-            File.delete(fname) if File.exist?(fname)
-          end
-        end
+      if image.exists_on_disk?
+        image.deduplicate_and_maybe_delete_file if backfill
         next
-      end
-      puts "  downloading #{fname} ..."
-
-      Tempfile.create([filename, ".tmp"]) do |tmp|
-        IO.copy_stream(URI.open(url, grok.cookie), tmp)
-        tmp.flush
-
-        result = image_ledger.record_file_download(
-          username: username,
-          conversation_id: conversation["conversation_id"],
-          source_url: url,
-          media_id: media_id,
-          source_path: tmp.path,
-          path: fname,
-        )
-
-        if result.fetch(:status) == "duplicate_delete"
-          puts "  duplicate image, deleting #{fname}"
-          next
-        end
-
-        FileUtils.mv(tmp.path, fname)
+      else
+        image.download_to_disk(cookie: grok.cookie)
       end
     end
   end
