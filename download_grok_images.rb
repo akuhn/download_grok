@@ -17,6 +17,9 @@ require './image_ledger'
 # downloads Grok conversations better than this script, believe me.
 
 flags = OptionsByExample.read(DATA).parse(ARGV)
+flags.expect_at_most_one_of :all, :user
+flags.expect_at_most_one_of :drop_partition, :list_partitions, :random
+
 
 if flags.include_random?
   files = Dir.glob('images/*').select { it =~ /(jpg|png)$/ }
@@ -118,6 +121,28 @@ def run_for_user(username, partition, flags)
   end
 end
 
+if flags.include_info?
+  query = flags.get(:info)
+  ledger = ImageLedger.new("my_downloaded_images.sqlite")
+  matches = ledger.find_images_by_name(query)
+
+  matches.each do |row|
+    media_id = row["media_id"]
+    conversation_id = row["conversation_id"]
+    puts "path: #{row["path"]}"
+    puts "  username: #{row["username"]}"
+    puts "  conversation_id: #{conversation_id}"
+    puts "  conversation_url: https://x.com/i/grok?conversation=#{conversation_id}"
+    puts "  media_id: #{media_id}"
+    puts "  source_url: https://ton.x.com/i/ton/data/grok-attachment/#{media_id}"
+    puts "  status: #{row["status"]}"
+    puts "  canonical_media_id: #{row["canonical_media_id"]}" if row["canonical_media_id"]
+    puts
+  end
+
+  exit
+end
+
 usernames = find_usernames(flags)
 if usernames.empty?
   puts "No cookie files found matching my_cookie_*.txt"
@@ -140,12 +165,13 @@ Options:
   -u, --user NAME           Use specific cookie and cache files
   -p, --partition NAME      Cache partition to use, defaults to today's date
   -m, --mark URL            Mark a cached response as stale and refetch this time
-  -d, --deduplicate          Find duplicate files and move them to trash folder
+  -d, --deduplicate         Find duplicate files and move them to trash folder
   -f, --force               Force a full scan, disable incremental updates
-  --list-partitions         List all partitions current user and exit
+  -i, --info FILE           Show information about this image filename
+  -a, --all                 Run for every my_cookie_*.txt user
   --drop-partition NAME     Delete all cache rows in NAME and exit
-  --random                  Open 25 random files from the images folder and exit
-  --all                     Run for every my_cookie_*.txt user
+  --list-partitions         List all partitions current user and exit
+  -r, -random               Open 25 random files from the images folder and exit
   -v, --verbose             Print each URL when it is fetched from the network
 
 The script expects a file named "my_cookie_username.txt" containing three
