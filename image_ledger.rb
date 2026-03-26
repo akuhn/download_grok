@@ -47,8 +47,12 @@ class ImageLedger
 
       return result unless result.fetch(:status) == "duplicate_delete"
 
-      puts "  duplicate existing image, deleting #{@fname}"
-      File.delete(@fname) if File.exist?(@fname)
+      trash_fname = File.join("trash", @fname)
+      FileUtils.mkdir_p(File.dirname(trash_fname))
+      if File.exist?(@fname)
+        puts "  duplicate existing image, moving #{@fname} to #{trash_fname}"
+        FileUtils.mv(@fname, trash_fname)
+      end
       result
     end
 
