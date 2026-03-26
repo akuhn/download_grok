@@ -110,7 +110,7 @@ def run_for_user(username, partition, flags)
       image.move_if_folder_changed
 
       if image.exists_on_disk?
-        image.deduplicate_and_maybe_delete_file if flags.include_backfill?
+        image.deduplicate_and_maybe_delete_file if flags.include_deduplicate?
       else
         image.download_and_deduplicate(cookie: grok.cookie)
       end
@@ -140,11 +140,11 @@ Options:
   -u, --user NAME           Use specific cookie and cache files
   -p, --partition NAME      Cache partition to use, defaults to today's date
   -m, --mark URL            Mark a cached response as stale and refetch this time
+  -d, --deduplicate          Find duplicate files and move them to trash folder
   -f, --force               Force a full scan, disable incremental updates
   --list-partitions         List all partitions current user and exit
   --drop-partition NAME     Delete all cache rows in NAME and exit
   --random                  Open 25 random files from the images folder and exit
-  --backfill                Classify existing files and apply dedupe status/deletion
   --all                     Run for every my_cookie_*.txt user
   -v, --verbose             Print each URL when it is fetched from the network
 
