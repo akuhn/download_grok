@@ -138,13 +138,15 @@ if flags.include_info?
     puts "path: #{row["path"]}"
     puts "  username: #{row["username"]}"
     puts "  conversation_id: #{conversation_id}"
-    puts "  conversation_url: https://x.com/i/grok?conversation=#{conversation_id}"
     puts "  media_id: #{media_id}"
+    puts "  canonical_media_id: #{row["canonical_media_id"]}" if row["canonical_media_id"]
+    puts "  conversation_url: https://x.com/i/grok?conversation=#{conversation_id}"
     puts "  source_url: https://ton.x.com/i/ton/data/grok-attachment/#{media_id}"
     puts "  status: #{row["status"]}"
-    puts "  canonical_media_id: #{row["canonical_media_id"]}" if row["canonical_media_id"]
     puts
   end
+
+  puts "Found #{matches.length} match#{'es' if matches.length > 1}"
 
   exit
 end
