@@ -4,10 +4,10 @@ require %(options_by_example)
 require %(open-uri)
 require %(tempfile)
 
-require './cache'
-require './client'
-require './extensions'
-require './image_ledger'
+require_relative "lib/cache"
+require_relative "lib/client"
+require_relative "lib/extensions"
+require_relative "lib/image_ledger"
 
 
 # This script does a tremendous job, really tremendous. It goes to twitter,
@@ -166,7 +166,7 @@ end
 __END__
 Download all images from grok conversations on twitter.
 
-Usage: download_grok_images.rb [options]
+Usage: download.rb [options]
 
 Options:
   -u, --user NAME           Use specific cookie and cache files

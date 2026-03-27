@@ -1,6 +1,6 @@
 require "tempfile"
 require "digest"
-require_relative "../image_ledger"
+require_relative "../lib/image_ledger"
 
 RSpec.describe ImageLedger do
   let(:ledger) { ImageLedger.new(":memory:", username: "u") }

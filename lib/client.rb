@@ -4,7 +4,7 @@ require %(uri)
 require %(openssl)
 require %(pry)
 
-require './cache'
+require_relative "cache"
 
 class Client
 
