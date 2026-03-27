@@ -1,7 +1,7 @@
 images/
 images*/
-my_cache*
-my_cookie*
-my_downloaded_images.sqlite
-project_map.json
+data/cache_*
+config/cookie*
+data/downloaded_images.sqlite
+data/project_map.json
 .DS_Store

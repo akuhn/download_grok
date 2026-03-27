@@ -32,9 +32,15 @@ end
 
 partition = flags.fetch(:partition) { Date.today.iso8601 }
 
+def ensure_storage_folders
+  %w[config data].each { |dir| Dir.mkdir(dir) unless Dir.exist?(dir) }
+end
+
 def find_usernames(flags)
   return [flags.fetch(:user, 'default')] unless flags.include_all?
-  Dir.glob("my_cookie_*.txt").map { it[/cookie_([a-z]+)/, 1] }
+  Dir.glob("config/cookie_*.txt")
+    .map { |it| File.basename(it)[/cookie_(.+)\.txt/, 1] }
+    .compact
 end
 
 def run_partition_command(cache_fname, partition, flags)
@@ -62,8 +68,8 @@ def run_partition_command(cache_fname, partition, flags)
 end
 
 def run_for_user(username, partition, flags)
-  cookie_fname = "my_cookie_#{username}.txt"
-  cache_fname = "my_cache_#{username}.sqlite"
+  cookie_fname = "config/cookie_#{username}.txt"
+  cache_fname = "data/cache_#{username}.sqlite"
 
   unless File.exist?(cookie_fname)
     puts "Skipping #{username}, missing #{cookie_fname}"
@@ -79,8 +85,8 @@ def run_for_user(username, partition, flags)
     puts "[#{username}] Marked the url as stale, expect it to reload this time"
   end
 
-  project_map = JSON.parse((File.read('project_map.json') rescue "{}"))
-  image_ledger = ImageLedger.new("my_downloaded_images.sqlite", username: username, project_map: project_map)
+  project_map = JSON.parse((File.read('data/project_map.json') rescue "{}"))
+  image_ledger = ImageLedger.new("data/downloaded_images.sqlite", username: username, project_map: project_map)
 
   grok.each_conversation(flags.include_force?) do |conversation|
 
@@ -123,7 +129,7 @@ end
 
 if flags.include_info?
   query = flags.get(:info)
-  ledger = ImageLedger.new("my_downloaded_images.sqlite")
+  ledger = ImageLedger.new("data/downloaded_images.sqlite")
   matches = ledger.find_images_by_name(query)
 
   matches.each do |row|
@@ -143,9 +149,10 @@ if flags.include_info?
   exit
 end
 
+ensure_storage_folders
 usernames = find_usernames(flags)
 if usernames.empty?
-  puts "No cookie files found matching my_cookie_*.txt"
+  puts "No cookie files found matching config/cookie_*.txt"
   exit 1
 end
 
@@ -168,18 +175,20 @@ Options:
   -d, --deduplicate         Find duplicate files and move them to trash folder
   -f, --force               Force a full scan, disable incremental updates
   -i, --info FILE           Show information about this image filename
-  -a, --all                 Run for every my_cookie_*.txt user
+  -a, --all                 Run for every config/cookie_*.txt user
   --drop-partition NAME     Delete all cache rows in NAME and exit
   --list-partitions         List all partitions current user and exit
-  -r, -random               Open 25 random files from the images folder and exit
+  -r, --random              Open 25 random files from the images folder and exit
   -v, --verbose             Print each URL when it is fetched from the network
 
-The script expects a file named "my_cookie_username.txt" containing three
+The script expects a file named "config/cookie_username.txt" containing three
 lines: auth_token, ct0 and twid. These values authenticate the session.
 
 Images are stored in the "images" directory and API responses are cached
-in a sqlite database for reasons. Cache entries are scoped to the selected
+in "data/cache_<username>.sqlite". The image ledger lives in
+"data/downloaded_images.sqlite". Cache entries are scoped to the selected
 partition, so the default cache only lasts for one day.
 
 The mapping file is a plain hash from conversation id to folder.
+It should be placed at "data/project_map.json".
 Use null to skip downloads for a conversation.
