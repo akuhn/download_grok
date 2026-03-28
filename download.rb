@@ -24,7 +24,7 @@ flags.expect_at_most_one_of :drop_partition, :list_partitions, :random
 if flags.include_random?
   files = Dir.glob('images/*').select { it =~ /(jpg|png)$/ }
   grouped = files.group_by { |fname| fname.split('/').last.split('_').first }
-  selection = grouped.values.sample(25).map(&:sample)
+  selection = grouped.values.sample(flags.get :num).map(&:sample)
   selection.each { |fname| system('open', fname) }
   puts selection
   exit
@@ -178,9 +178,10 @@ Options:
   -f, --force               Force a full scan, disable incremental updates
   -i, --info FILE           Show information about this image filename
   -a, --all                 Run for every config/cookie_*.txt user
+  -r, --random              Open random files from the images folder and exit
+  -n, --num NUM             Number of random files (default 10)
   --drop-partition NAME     Delete all cache rows in NAME and exit
   --list-partitions         List all partitions current user and exit
-  -r, --random              Open 25 random files from the images folder and exit
   -v, --verbose             Print each URL when it is fetched from the network
 
 The script expects a file named "config/cookie_username.txt" containing three
