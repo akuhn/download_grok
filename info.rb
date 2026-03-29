@@ -5,9 +5,37 @@ require_relative "lib/extensions"
 require_relative "lib/image_ledger"
 
 flags = OptionsByExample.read(DATA).parse(ARGV)
+flags.expect_at_most_one_of :compare, :delete_conversation, :delete_image
 names = flags.get(:names) || []
 
 ledger = ImageLedger.new("data/downloaded_images.sqlite")
+
+if flags.include_delete_conversation?
+  conversation_id = flags.get(:delete_conversation)
+  matches = ledger.find_images_by_conversation_id(conversation_id)
+
+  deleted_rows = ledger.delete_images_by_conversation_id(conversation_id)
+  deleted_files = matches.map(&'path').count do |fname|
+    File.exist?(fname) && File.delete(fname)
+  end
+
+  puts "Deleted conversation #{conversation_id}"
+  puts "  #{deleted_rows} index entries deleted"
+  puts "  #{deleted_files} files deleted"
+  exit
+end
+
+if flags.include_delete_image?
+  media_id = flags.get(:delete_image)
+  row = ledger.find_image_by_media_id(media_id)
+  deleted_file = row && File.exist?(row["path"]) && File.delete(row["path"])
+  marked_rows = ledger.mark_image_as_manual_delete_by_media_id(media_id)
+
+  puts "Deleted image #{media_id}"
+  puts "  #{marked_rows} index entries marked as 'manual_delete'"
+  puts "  #{deleted_file ? 1 : 0} files deleted"
+  exit
+end
 
 if flags.include_compare?
   indexed_entries = ledger.find_all_entries
@@ -22,7 +50,7 @@ if flags.include_compare?
 
   unindexed_entries = (disk_paths - indexed_paths).entries.sort
   missing = indexed_entries
-    .reject { |row| row["status"] == "duplicate_delete" || File.exist?(row["path"]) }
+    .reject { |row| %w[duplicate_delete manual_delete].include?(row["status"]) || File.exist?(row["path"]) }
     .uniq { |row| row["media_id"] }
     .sort_by { |row| row.values_at("conversation_id", "username", "media_id") }
 
@@ -66,3 +94,7 @@ Usage: info.rb [options] [names ...]
 
 Options:
   -c, --compare    Compare indexed paths against files on disk
+  --delete-conversation ID
+                    Delete files and delete all conversation index entries
+  --delete-image ID
+                    Delete file and mark one index entry as manual_delete by media ID or source URL

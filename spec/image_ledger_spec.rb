@@ -184,4 +184,24 @@ RSpec.describe ImageLedger do
       expect(row("200")["canonical_media_id"]).to eq("100")
     end
   end
+
+  it "marks media as manual_delete without deleting the row" do
+    insert_row(
+      media_id: "11",
+      username: "u",
+      conversation_id: "c1",
+      path: "images/c1_11.jpg",
+      size_bytes: 10,
+      md5: "abc",
+      status: "unique",
+      canonical_media_id: nil,
+    )
+
+    changed = ledger.mark_image_as_manual_delete_by_media_id("11")
+    updated = row("11")
+
+    expect(changed).to eq(1)
+    expect(updated["media_id"]).to eq("11")
+    expect(updated["status"]).to eq("manual_delete")
+  end
 end

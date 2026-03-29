@@ -33,7 +33,7 @@ class ImageLedger
     def has_been_deleted?
       media_id = @source_url.to_s[/\d+$/]
       !!@ledger.instance_variable_get(:@db).get_first_row(
-        "SELECT 1 FROM images WHERE media_id = ? AND status = 'duplicate_delete' LIMIT 1",
+        "SELECT 1 FROM images WHERE media_id = ? AND status IN ('duplicate_delete', 'manual_delete') LIMIT 1",
         [media_id]
       )
     end
@@ -140,6 +140,29 @@ class ImageLedger
     )
   end
 
+  def find_images_by_conversation_id(conversation_id)
+    @db.execute(
+      %{
+        SELECT media_id, username, conversation_id, path, status, canonical_media_id
+        FROM images
+        WHERE conversation_id = ?
+        ORDER BY path
+      },
+      [conversation_id]
+    )
+  end
+
+  def find_image_by_media_id(media_id)
+    @db.get_first_row(
+      %{
+        SELECT media_id, username, conversation_id, path, status, canonical_media_id
+        FROM images
+        WHERE media_id = ?
+      },
+      [media_id.to_s]
+    )
+  end
+
   def find_all_entries
     @db.execute(
       %{
@@ -147,6 +170,19 @@ class ImageLedger
         FROM images
       }
     )
+  end
+
+  def delete_images_by_conversation_id(conversation_id)
+    @db.execute("DELETE FROM images WHERE conversation_id = ?", [conversation_id])
+    @db.changes
+  end
+
+  def mark_image_as_manual_delete_by_media_id(media_id)
+    @db.execute(
+      "UPDATE images SET status = 'manual_delete', canonical_media_id = NULL WHERE media_id = ?",
+      [media_id]
+    )
+    @db.changes
   end
 
   def check_for_duplicates_and_update_or_insert_rows(username:, conversation_id:, media_id:, source_path:, path:)
