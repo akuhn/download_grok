@@ -127,30 +127,6 @@ def run_for_user(username, partition, flags)
   end
 end
 
-if flags.include_info?
-  query = flags.get(:info)
-  ledger = ImageLedger.new("data/downloaded_images.sqlite")
-  matches = ledger.find_images_by_name(query)
-
-  matches.each do |row|
-    media_id = row["media_id"]
-    conversation_id = row["conversation_id"]
-    puts "path: #{row["path"]}"
-    puts "  username: #{row["username"]}"
-    puts "  conversation_id: #{conversation_id}"
-    puts "  media_id: #{media_id}"
-    puts "  canonical_media_id: #{row["canonical_media_id"]}" if row["canonical_media_id"]
-    puts "  conversation_url: https://x.com/i/grok?conversation=#{conversation_id}"
-    puts "  source_url: https://ton.x.com/i/ton/data/grok-attachment/#{media_id}"
-    puts "  status: #{row["status"]}"
-    puts
-  end
-
-  puts "Found #{matches.length} match#{'es' if matches.length > 1}"
-
-  exit
-end
-
 ensure_storage_folders
 usernames = find_usernames(flags)
 if usernames.empty?
@@ -176,7 +152,6 @@ Options:
   -m, --mark URL            Mark a cached response as stale and refetch this time
   -d, --deduplicate         Find duplicate files and move them to trash folder
   -f, --force               Force a full scan, disable incremental updates
-  -i, --info FILE           Show information about this image filename
   -a, --all                 Run for every config/cookie_*.txt user
   -r, --random              Open random files from the images folder and exit
   -n, --num NUM             Number of random files (default 10)

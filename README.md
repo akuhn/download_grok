@@ -27,6 +27,8 @@ To remove one partition without touching others, run `bundle exec ruby download.
 
 To quickly browse what you already downloaded, run `bundle exec ruby download.rb --random` and it opens 10 random files from `images/` by default. You can change the count with `--num`.
 
+To inspect files already tracked in the ledger, run `bundle exec ruby info.rb [names ...]`. It matches each name fragment against stored paths and prints conversation/media metadata.
+
 If you want to use multiple image folders, create `data/project_map.json` as a plain hash mapping conversation id to folders, or to `null` to skip downloads for that conversations.
 
 A few practical notes: this depends on private internals, so expect breakage when they move things around. Keep cookie files local, never commit them and treat this as a practical personal utility, not by-the-book but it works.
