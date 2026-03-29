@@ -140,6 +140,15 @@ class ImageLedger
     )
   end
 
+  def find_all_entries
+    @db.execute(
+      %{
+        SELECT media_id, username, conversation_id, path, status
+        FROM images
+      }
+    )
+  end
+
   def check_for_duplicates_and_update_or_insert_rows(username:, conversation_id:, media_id:, source_path:, path:)
     size_bytes = File.size(source_path)
     md5 = Digest::MD5.file(source_path).hexdigest
