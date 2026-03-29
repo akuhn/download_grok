@@ -1,43 +1,39 @@
 require %(set)
 require %(options_by_example)
 
+require_relative "lib/extensions"
 require_relative "lib/image_ledger"
 
 flags = OptionsByExample.read(DATA).parse(ARGV)
-names = flags.get(:names)
+names = flags.get(:names) || []
 
 ledger = ImageLedger.new("data/downloaded_images.sqlite")
 
 if flags.include_compare?
   indexed_entries = ledger.find_all_entries
-  indexed_paths = indexed_entries.map { |row| row["path"].to_s }.reject(&:empty?).to_set
+  indexed_paths = indexed_entries.map(&'path').to_set
 
-  roots = indexed_paths.map { |path| path.split('/').first }.uniq
-  roots << "images" if roots.empty? && Dir.exist?("images")
+  roots = indexed_paths.map { it.split('/').first }
+  roots = ["images", *roots].uniq
 
   disk_paths = roots.flat_map { |root|
-    Dir.glob("#{root}/**/*", File::FNM_DOTMATCH)
-      .reject { |path| path.end_with?("/.", "/..") }
-      .select { |path| File.file?(path) }
-      .reject { |path| File.basename(path).start_with?(".") }
-  }.uniq.to_set
+    Dir.glob("#{root}/**/*").select { |path| File.file?(path) }
+  }.to_set
 
-  unindexed = (disk_paths - indexed_paths).to_a.sort
+  unindexed_entries = (disk_paths - indexed_paths).entries.sort
   missing = indexed_entries
-    .reject { |row| row["status"] == "duplicate_delete" }
-    .reject { |row| row["path"].to_s.empty? || File.exist?(row["path"]) }
+    .reject { |row| row["status"] == "duplicate_delete" || File.exist?(row["path"]) }
     .uniq { |row| row["media_id"] }
-    .sort_by { |row| [row["conversation_id"].to_s, row["username"].to_s, row["media_id"].to_s] }
+    .sort_by { |row| row.values_at("conversation_id", "username", "media_id") }
 
-  puts "Unindexed files: #{unindexed.length}"
-  unindexed.each { |path| puts "  #{path}" }
+  puts "Unindexed files: #{unindexed_entries.length}"
+  unindexed_entries.each { |path| puts "  #{path}" }
   puts
+
   puts "Missing indexed files: #{missing.length}"
   missing.group_by { |row| row["conversation_id"].to_s }.each do |conversation_id, rows|
     puts "  https://x.com/i/grok?conversation=#{conversation_id}"
-    rows.each do |row|
-      puts "    https://ton.x.com/i/ton/data/grok-attachment/#{row["media_id"]}\t#{row["username"]}"
-    end
+    rows.each { |row| puts "    https://ton.x.com/i/ton/data/grok-attachment/#{row["media_id"]}\t#{row["username"]}" }
   end
 
   exit
