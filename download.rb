@@ -18,17 +18,7 @@ require_relative "lib/image_ledger"
 
 flags = OptionsByExample.read(DATA).parse(ARGV)
 flags.expect_at_most_one_of :all, :user
-flags.expect_at_most_one_of :drop_partition, :list_partitions, :random
-
-
-if flags.include_random?
-  files = Dir.glob('images/*').select { it =~ /(jpg|png)$/ }
-  grouped = files.group_by { |fname| fname.split('/').last.split('_').first }
-  selection = grouped.values.sample(flags.get :num).map(&:sample)
-  selection.each { |fname| system('open', fname) }
-  puts selection
-  exit
-end
+flags.expect_at_most_one_of :drop_partition, :list_partitions
 
 partition = flags.fetch(:partition) { Date.today.iso8601 }
 
@@ -153,8 +143,6 @@ Options:
   -d, --deduplicate         Find duplicate files and move them to trash folder
   -f, --force               Force a full scan, disable incremental updates
   -a, --all                 Run for every config/cookie_*.txt user
-  -r, --random              Open random files from the images folder and exit
-  -n, --num NUM             Number of random files (default 10)
   --drop-partition NAME     Delete all cache rows in NAME and exit
   --list-partitions         List all partitions current user and exit
   -v, --verbose             Print each URL when it is fetched from the network
