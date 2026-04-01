@@ -25,7 +25,7 @@ Downloaded images are also tracked in a shared `data/downloaded_images.sqlite` l
 
 To remove one partition without touching others, run `bundle exec ruby download.rb -u username --drop-partition dev`. You can inspect available names with `--list-partitions`.
 
-To quickly browse what you already downloaded, run `bundle exec ruby random.rb` and it opens 10 random files from `images/` by default. You can change the count with `-n`, for example `bundle exec ruby random.rb -n 25`.
+To quickly browse what you already downloaded, run `bundle exec ruby random.rb` and it opens 10 random files from `images/` by default. You can change the count with `-n`, for example `bundle exec ruby random.rb -n 25`. If you pass `-u username`, it only picks images from conversations indexed for that username, still limited to files in `images/`.
 
 To inspect files already tracked in the ledger, run `bundle exec ruby info.rb [names ...]`. It matches each name fragment against stored paths and prints conversation/media metadata.
 
