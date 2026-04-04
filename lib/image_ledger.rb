@@ -172,6 +172,44 @@ class ImageLedger
     )
   end
 
+  def find_where(query_hash)
+    clauses = []
+    params = []
+    query_hash.each do |key, value|
+      name = case key
+      when :media_id, "media_id"
+        "media_id"
+      when :username, "username"
+        "username"
+      when :conversation_id, "conversation_id"
+        "conversation_id"
+      when :path, "path"
+        "path"
+      when :status, "status"
+        "status"
+      when :canonical_media_id, "canonical_media_id"
+        "canonical_media_id"
+      else
+        raise ArgumentError, "unsupported filter #{key.inspect}"
+      end
+
+      if value.nil?
+        clauses << "#{name} IS NULL"
+      else
+        clauses << "#{name} = ?"
+        params << value
+      end
+    end
+
+    sql = %{
+      SELECT media_id, username, conversation_id, path, status, canonical_media_id
+      FROM images
+    }
+    sql += "\nWHERE #{clauses.join(" AND ")}" unless clauses.empty?
+    sql += "\nORDER BY path"
+    @db.execute(sql, params)
+  end
+
   def delete_images_by_conversation_id(conversation_id)
     @db.execute("DELETE FROM images WHERE conversation_id = ?", [conversation_id])
     @db.changes

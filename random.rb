@@ -1,3 +1,5 @@
+#!/usr/bin/env -S bundle exec ruby
+
 require %(options_by_example)
 
 require_relative "lib/image_ledger"

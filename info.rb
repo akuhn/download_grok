@@ -1,3 +1,5 @@
+#!/usr/bin/env -S bundle exec ruby
+
 require %(set)
 require %(options_by_example)
 

@@ -1,3 +1,5 @@
+#!/usr/bin/env -S bundle exec ruby
+
 require %(json)
 require %(date)
 require %(options_by_example)

@@ -204,4 +204,70 @@ RSpec.describe ImageLedger do
     expect(updated["media_id"]).to eq("11")
     expect(updated["status"]).to eq("manual_delete")
   end
+
+  it "builds a where query from supported filters" do
+    insert_row(
+      media_id: "11",
+      username: "u1",
+      conversation_id: "c1",
+      path: "images/c1_11.jpg",
+      size_bytes: 10,
+      md5: "abc",
+      status: "unique",
+      canonical_media_id: nil,
+    )
+    insert_row(
+      media_id: "12",
+      username: "u1",
+      conversation_id: "c1",
+      path: "images/c1_12.jpg",
+      size_bytes: 11,
+      md5: "def",
+      status: "duplicate_delete",
+      canonical_media_id: "11",
+    )
+    insert_row(
+      media_id: "13",
+      username: "u2",
+      conversation_id: "c2",
+      path: "images/c2_13.jpg",
+      size_bytes: 12,
+      md5: "ghi",
+      status: "unique",
+      canonical_media_id: nil,
+    )
+
+    rows = ledger.find_where(username: "u1", conversation_id: "c1")
+
+    expect(rows.map { |row| row["media_id"] }).to eq(%w[11 12])
+    expect(rows.map { |row| row["path"] }).to eq(["images/c1_11.jpg", "images/c1_12.jpg"])
+  end
+
+  it "supports nil filters and rejects unknown keys" do
+    insert_row(
+      media_id: "11",
+      username: "u1",
+      conversation_id: "c1",
+      path: "images/c1_11.jpg",
+      size_bytes: 10,
+      md5: "abc",
+      status: "unique",
+      canonical_media_id: nil,
+    )
+    insert_row(
+      media_id: "12",
+      username: "u1",
+      conversation_id: "c1",
+      path: "images/c1_12.jpg",
+      size_bytes: 11,
+      md5: "def",
+      status: "duplicate_delete",
+      canonical_media_id: "11",
+    )
+
+    rows = ledger.find_where(canonical_media_id: nil, status: "unique")
+    expect(rows.map { |row| row["media_id"] }).to eq(["11"])
+
+    expect { ledger.find_where(unknown: "x") }.to raise_error(ArgumentError, /unsupported filter/)
+  end
 end
