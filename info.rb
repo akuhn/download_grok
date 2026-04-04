@@ -8,7 +8,6 @@ require_relative "lib/image_ledger"
 
 flags = OptionsByExample.read(DATA).parse(ARGV)
 flags.expect_at_most_one_of :compare, :delete_conversation, :delete_image
-names = flags.get(:names) || []
 
 ledger = ImageLedger.new("data/downloaded_images.sqlite")
 
@@ -28,14 +27,23 @@ if flags.include_delete_conversation?
 end
 
 if flags.include_delete_image?
-  media_id = flags.get(:delete_image)
-  row = ledger.find_image_by_media_id(media_id)
-  deleted_file = row && File.exist?(row["path"]) && File.delete(row["path"])
-  marked_rows = ledger.mark_image_as_manual_delete_by_media_id(media_id)
+  # Vararg flags aren't support yet, so we cheat a little bit
+  names = [flags.get(:delete_image), *flags.get(:names)]
 
-  puts "Deleted image #{media_id}"
-  puts "  #{marked_rows} index entries marked as 'manual_delete'"
-  puts "  #{deleted_file ? 1 : 0} files deleted"
+  names.each do |each|
+    media_id = each[/\A\d{19}\z/] || each[/\d{19}_(\d{19})/, 1]
+    raise "unknown media_id found: #{each}" unless media_id
+
+    row = ledger.find_image_by_media_id(media_id)
+    deleted_file = row && File.exist?(row["path"]) && File.delete(row["path"])
+    marked_rows = ledger.mark_image_as_manual_delete_by_media_id(media_id)
+
+    puts "Deleted image #{media_id}"
+    puts "  source: #{each}"
+    puts "  #{marked_rows} index entries marked as 'manual_delete'"
+    puts "  #{deleted_file ? 1 : 0} files deleted"
+  end
+
   exit
 end
 
@@ -95,8 +103,6 @@ Show metadata about downloaded images.
 Usage: info.rb [options] [names ...]
 
 Options:
-  -c, --compare    Compare indexed paths against files on disk
-  --delete-conversation ID
-                    Delete files and delete all conversation index entries
-  --delete-image ID
-                    Delete file and mark one index entry as manual_delete by media ID or source URL
+  -c, --compare               Compare indexed paths against files on disk
+  --delete-conversation ID    Delete files and delete all conversation index entries
+  --delete-image ID           Delete files and mark index entries as manual_delete
