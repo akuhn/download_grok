@@ -5,3 +5,4 @@ config/cookie*
 data/downloaded_images.sqlite
 data/project_map.json
 .DS_Store
+config
