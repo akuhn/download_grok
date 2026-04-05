@@ -1,5 +1,3 @@
-#!/usr/bin/env -S bundle exec ruby
-
 require %(sqlite3)
 
 db = SQLite3::Database.new("data/downloaded_images.sqlite")

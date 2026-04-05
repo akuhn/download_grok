@@ -1,0 +1,14 @@
+#!/usr/bin/env -S bundle exec ruby
+
+subcommands = Dir.glob("#{__dir__}/*.rb").map { |path| File.basename(path, ".rb") }.sort
+subcommand = ARGV.shift&.sub(/\.rb\z/, "")
+
+unless subcommand && subcommands.include?(subcommand)
+  warn "Usage: grok <subcommand> [args]"
+  warn
+  warn "Subcommands:"
+  subcommands.each { |name| warn "  #{name}" }
+  exit 1
+end
+
+exec Gem.ruby, File.join(__dir__, "#{subcommand}.rb"), *ARGV

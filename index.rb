@@ -1,5 +1,3 @@
-#!/usr/bin/env -S bundle exec ruby
-
 require %(set)
 require %(options_by_example)
 
@@ -77,7 +75,7 @@ if flags.include_compare?
   exit
 end
 
-matches = names.flat_map { |name| ledger.find_images_by_name(name) }
+matches = flags.get(:names).flat_map { |name| ledger.find_images_by_name(name) }
   .uniq { |row| row["media_id"] }
   .sort_by { |row| row["path"] }
 
@@ -100,7 +98,7 @@ puts "Found #{matches.length} match#{'es' if matches.length != 1}"
 __END__
 Show metadata about downloaded images.
 
-Usage: info.rb [options] [names ...]
+Usage: index.rb [options] [names ...]
 
 Options:
   -c, --compare               Compare indexed paths against files on disk

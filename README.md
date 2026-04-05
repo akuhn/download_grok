@@ -12,6 +12,9 @@ Run it like this:
 bundle install
 mkdir -p images config data
 bundle exec ruby download.rb -u username
+# or
+export PATH="$PATH:."
+grok download -u username
 ```
 
 If you omit `-u/--user`, it uses `default` and looks for `config/cookie_default.txt`. By default the cache partition is the current local date in `YYYY-MM-DD` format, which means cached API responses are reused only within that day. If you want a longer-lived cache while iterating, pass a named partition (for example `--partition dev`).
@@ -27,9 +30,9 @@ To remove one partition without touching others, run `bundle exec ruby download.
 
 To quickly browse what you already downloaded, run `bundle exec ruby random.rb` and it opens 10 random files from `images/` by default. You can change the count with `-n`, for example `bundle exec ruby random.rb -n 25`. If you pass `-u username`, it only picks images from conversations indexed for that username, still limited to files in `images/`.
 
-To inspect files already tracked in the ledger, run `bundle exec ruby info.rb [names ...]`. It matches each name fragment against stored paths and prints conversation/media metadata.
+To inspect files already tracked in the ledger, run `bundle exec ruby index.rb [names ...]` (or `./grok index [names ...]`). It matches each name fragment against stored paths and prints conversation/media metadata.
 
-To compare the ledger with files on disk, run `bundle exec ruby info.rb --compare`. It reports files on disk that are not indexed and indexed paths that are missing on disk.
+To compare the ledger with files on disk, run `bundle exec ruby index.rb --compare` (or `./grok index --compare`). It reports files on disk that are not indexed and indexed paths that are missing on disk.
 
 If you want to use multiple image folders, create `data/project_map.json` as a plain hash mapping conversation id to folders, or to `null` to skip downloads for that conversations.
 
