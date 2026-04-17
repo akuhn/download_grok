@@ -21,6 +21,7 @@ If you omit `-u/--user`, it uses `default` and looks for `config/cookie_default.
 If you want to run the same process for every local cookie file, use `--all`; it scans for `config/cookie_*.txt` and runs once per discovered username.
 
 By default it runs incrementally: it compares each conversation response against the most recent cached response for that same request URL across all partitions and stops at the first unchanged one. If you want a full pass, use `--force`.
+If you only want to guarantee a fresh first history page fetch, use `--bump`.
 
 Responses are still stored in `data/cache_<username>.sqlite`, but they are now partitioned inside that database. Delete rows from that cache if you want to force a refetch for a specific url, delete the file if you want a full clean run, or switch partitions if you want an isolated cache namespace.
 

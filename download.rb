@@ -75,6 +75,13 @@ def run_for_user(username, partition, flags)
     puts "[#{username}] Marked the url as stale, expect it to reload this time"
   end
 
+  if flags.include_bump?
+    grok.cache.mark_as_stale grok.build_graphql_url(
+      "9Hyh5D4-WXLnExZkONSkZg/GrokHistory",
+      {},
+    )
+  end
+
   project_map = JSON.parse((File.read('data/project_map.json') rescue "{}"))
   image_ledger = ImageLedger.new("data/downloaded_images.sqlite", username: username, project_map: project_map)
 
@@ -139,10 +146,11 @@ Usage: download.rb [options]
 Options:
   -u, --user NAME           Use specific cookie and cache files
   -p, --partition NAME      Cache partition to use, defaults to today's date
-  -m, --mark URL            Mark a cached response as stale and refetch this time
-  -d, --deduplicate         Find duplicate files and move them to trash folder
-  -f, --force               Force a full scan, disable incremental updates
   -a, --all                 Run for every config/cookie_*.txt user
+  -b, --bump                Always refetch the first history call
+  -f, --force               Force a full scan, disable incremental updates
+  -m, --mark URL            Mark a cached response as stale and refetch this time
+  --deduplicate             Find duplicate files and move them to trash folder
   --drop-partition NAME     Delete all cache rows in NAME and exit
   --list-partitions         List all partitions current user and exit
   -v, --verbose             Print each URL when it is fetched from the network
