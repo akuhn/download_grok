@@ -1,4 +1,5 @@
 require %(set)
+require %(fileutils)
 require %(options_by_example)
 
 require_relative "lib/extensions"
@@ -13,14 +14,19 @@ if flags.include_delete_conversation?
   conversation_id = flags.get(:delete_conversation)
   matches = ledger.find_images_by_conversation_id(conversation_id)
 
-  deleted_rows = ledger.delete_images_by_conversation_id(conversation_id)
-  deleted_files = matches.map(&'path').count do |fname|
-    File.exist?(fname) && File.delete(fname)
+  moved_files = matches.map(&'path').count do |fname|
+    next false unless File.exist?(fname)
+
+    trash_fname = File.join("trash", fname)
+    FileUtils.mkdir_p(File.dirname(trash_fname))
+    FileUtils.mv(fname, trash_fname)
+    true
   end
+  deleted_rows = ledger.delete_images_by_conversation_id(conversation_id)
 
   puts "Deleted conversation #{conversation_id}"
   puts "  #{deleted_rows} index entries deleted"
-  puts "  #{deleted_files} files deleted"
+  puts "  #{moved_files} files moved to trash"
   exit
 end
 
@@ -33,13 +39,18 @@ if flags.include_delete_image?
     raise "unknown media_id found: #{each}" unless media_id
 
     row = ledger.find_image_by_media_id(media_id)
-    deleted_file = row && File.exist?(row["path"]) && File.delete(row["path"])
+    moved_file = if row && File.exist?(row["path"])
+      trash_fname = File.join("trash", row["path"])
+      FileUtils.mkdir_p(File.dirname(trash_fname))
+      FileUtils.mv(row["path"], trash_fname)
+      true
+    end
     marked_rows = ledger.mark_image_as_manual_delete_by_media_id(media_id)
 
     puts "Deleted image #{media_id}"
     puts "  source: #{each}"
     puts "  #{marked_rows} index entries marked as 'manual_delete'"
-    puts "  #{deleted_file ? 1 : 0} files deleted"
+    puts "  #{moved_file ? 1 : 0} files moved to trash"
   end
 
   exit
